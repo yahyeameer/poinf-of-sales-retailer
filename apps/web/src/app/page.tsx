@@ -1,0 +1,255 @@
+import { redirect } from "next/navigation";
+
+import { formatMoney } from "@ai-pos/shared";
+
+import { Shell } from "@/components/Shell";
+import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+
+/** Local calendar day as YYYY-MM-DD, matching the `day` column in the views. */
+function isoDay(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+
+function percentChange(current: number, previous: number): string {
+  if (previous === 0) return current === 0 ? "no change" : "first sales this week";
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return `${pct >= 0 ? "+" : ""}${pct}% vs last week`;
+}
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // No tenant filter on any of these: RLS applies it, and adding one by hand
+  // would be a second source of truth that could quietly drift out of step.
+  const { data: profile } = await supabase
+    .from("users")
+    .select("name, role, tenant_id")
+    .eq("id", user.id)
+    .single();
+
+  // Signed up but never finished onboarding — no shop, so nothing to show.
+  if (!profile?.tenant_id) redirect("/onboarding");
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("name, currency")
+    .single();
+
+  const currency = tenant?.currency ?? "USD";
+
+  const [{ data: daily }, { data: lowStock }, { data: topMovers }, { data: oversold }] =
+    await Promise.all([
+      supabase
+        .from("v_sales_daily")
+        .select("day, transactions, revenue_cents, cash_cents, mobile_money_cents, card_cents")
+        .gte("day", isoDay(13))
+        .order("day", { ascending: false }),
+
+      supabase
+        .from("v_low_stock")
+        .select("product_id, name, stock_on_hand, reorder_point")
+        .order("stock_on_hand", { ascending: true })
+        .limit(8),
+
+      supabase
+        .from("v_product_performance")
+        .select("name, units, revenue_cents")
+        .gte("day", isoDay(6)),
+
+      supabase
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("has_oversell", true),
+    ]);
+
+  const rows = daily ?? [];
+  const today = rows.find((r) => r.day === isoDay(0));
+
+  const thisWeek = rows.filter((r) => r.day >= isoDay(6));
+  const lastWeek = rows.filter((r) => r.day < isoDay(6) && r.day >= isoDay(13));
+
+  const sum = (list: typeof rows, key: "revenue_cents" | "transactions") =>
+    list.reduce((acc, r) => acc + Number(r[key] ?? 0), 0);
+
+  const weekRevenue = sum(thisWeek, "revenue_cents");
+  const prevRevenue = sum(lastWeek, "revenue_cents");
+  const weekTransactions = sum(thisWeek, "transactions");
+
+  // The view is per product per day; collapse to per product for the week.
+  const movers = Object.values(
+    (topMovers ?? []).reduce<Record<string, { name: string; units: number; revenue: number }>>(
+      (acc, row) => {
+        const key = row.name as string;
+        acc[key] ??= { name: key, units: 0, revenue: 0 };
+        acc[key].units += Number(row.units ?? 0);
+        acc[key].revenue += Number(row.revenue_cents ?? 0);
+        return acc;
+      },
+      {},
+    ),
+  )
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
+  const cashSplit = thisWeek.reduce(
+    (acc, r) => ({
+      cash: acc.cash + Number(r.cash_cents ?? 0),
+      mobile: acc.mobile + Number(r.mobile_money_cents ?? 0),
+      card: acc.card + Number(r.card_cents ?? 0),
+    }),
+    { cash: 0, mobile: 0, card: 0 },
+  );
+
+  return (
+    <Shell shopName={tenant?.name ?? "Your shop"}>
+      <h1>Today</h1>
+      <p className="subtitle">
+        {profile.name ? `${profile.name} · ` : ""}
+        {profile.role}
+      </p>
+
+      {(oversold ?? 0) > 0 && (
+        <div className="notice">
+          <strong>{oversold} sale(s) went through on stock you didn&apos;t have.</strong> Two
+          devices sold the last unit at once. The sales are recorded — the stock counts need
+          correcting.
+        </div>
+      )}
+
+      <div className="tiles">
+        <div className="tile">
+          <div className="label">Revenue today</div>
+          <div className="value">{formatMoney(Number(today?.revenue_cents ?? 0), currency)}</div>
+          <div className="delta">{today?.transactions ?? 0} transactions</div>
+        </div>
+        <div className="tile">
+          <div className="label">Revenue this week</div>
+          <div className="value">{formatMoney(weekRevenue, currency)}</div>
+          <div className="delta">{percentChange(weekRevenue, prevRevenue)}</div>
+        </div>
+        <div className="tile">
+          <div className="label">Transactions this week</div>
+          <div className="value">{weekTransactions}</div>
+          <div className="delta">
+            {weekTransactions > 0
+              ? `${formatMoney(Math.round(weekRevenue / weekTransactions), currency)} average`
+              : "—"}
+          </div>
+        </div>
+        <div className="tile">
+          <div className="label">Cash vs mobile money</div>
+          <div className="value">
+            {weekRevenue > 0 ? `${Math.round((cashSplit.cash / weekRevenue) * 100)}%` : "—"}
+          </div>
+          <div className="delta">
+            {formatMoney(cashSplit.cash, currency)} cash ·{" "}
+            {formatMoney(cashSplit.mobile, currency)} mobile
+          </div>
+        </div>
+      </div>
+
+      <section className="panel">
+        <header>
+          Top movers <span className="hint">last 7 days</span>
+        </header>
+        {movers.length === 0 ? (
+          <p className="empty">No sales in the last week.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th className="num">Units</th>
+                <th className="num">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movers.map((m) => (
+                <tr key={m.name}>
+                  <td>{m.name}</td>
+                  <td className="num">{m.units}</td>
+                  <td className="num">{formatMoney(m.revenue, currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="panel">
+        <header>
+          Running low <span className="hint">at or below reorder point</span>
+        </header>
+        {(lowStock ?? []).length === 0 ? (
+          <p className="empty">Everything is above its reorder point.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th className="num">On hand</th>
+                <th className="num">Reorder at</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {(lowStock ?? []).map((p) => (
+                <tr key={p.product_id as string}>
+                  <td>{p.name}</td>
+                  <td className="num">{Number(p.stock_on_hand)}</td>
+                  <td className="num">{Number(p.reorder_point)}</td>
+                  <td className="num">
+                    {Number(p.stock_on_hand) <= 0 ? (
+                      <span className="pill danger">out</span>
+                    ) : (
+                      <span className="pill warn">low</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="panel">
+        <header>
+          Last 14 days <span className="hint">by day the sale happened</span>
+        </header>
+        {rows.length === 0 ? (
+          <p className="empty">Nothing recorded yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th className="num">Transactions</th>
+                <th className="num">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.day as string}>
+                  <td>{r.day}</td>
+                  <td className="num">{r.transactions}</td>
+                  <td className="num">
+                    {formatMoney(Number(r.revenue_cents ?? 0), currency)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    </Shell>
+  );
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@ai-pos/db",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "reset": "supabase db reset",
+    "push": "supabase db push",
+    "diff": "supabase db diff",
+    "lint": "supabase db lint --level warning",
+    "test": "supabase test db"
+  }
+}

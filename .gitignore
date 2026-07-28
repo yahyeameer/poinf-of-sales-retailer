@@ -1,0 +1,43 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Expo
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+android/
+ios/
+
+# Supabase local stack
+packages/db/supabase/.branches/
+packages/db/supabase/.temp/
+
+# Env — never commit real keys (see .env.example)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*

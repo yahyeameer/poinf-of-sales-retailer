@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "AI POS",
+    "slug": "ai-pos",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "aipos",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+      "package": "shop.aipos.app",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "The app uses the camera to scan barcodes and recognise products at checkout."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
