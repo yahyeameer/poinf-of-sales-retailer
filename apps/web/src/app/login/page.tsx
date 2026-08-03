@@ -32,7 +32,8 @@ export default function LoginPage() {
 
     // refresh() rather than push(): the dashboard is a Server Component and
     // needs to re-render with the new session cookie attached.
-    router.push(params.get("next") ?? "/");
+    const targetUrl = params.get("next") || "/";
+    router.push(targetUrl as any);
     router.refresh();
   }
 

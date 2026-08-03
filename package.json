@@ -9,11 +9,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "build": "npx turbo run build",
+    "dev": "npx turbo run dev",
+    "lint": "npx turbo run lint",
+    "typecheck": "npx turbo run typecheck",
+    "test": "npx turbo run test",
     "db:start": "supabase start --workdir packages/db",
     "db:stop": "supabase stop --workdir packages/db",
     "db:reset": "supabase db reset --workdir packages/db",
