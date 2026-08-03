@@ -31,6 +31,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  min-height: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -84,6 +85,10 @@ a {
 }
 
 .main {
+  /* min-width: 0 is load-bearing. A 1fr grid track defaults to min-content
+     width, so a wide table would push this column past the viewport and
+     scroll the whole page sideways instead of scrolling inside its panel. */
+  min-width: 0;
   padding: 28px 32px 64px;
   max-width: 1080px;
 }
@@ -150,7 +155,9 @@ h1 {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-bottom: 20px;
-  overflow: hidden;
+  /* auto, not hidden: a narrow phone scrolls the table inside the panel
+     rather than clipping the revenue column off the right edge. */
+  overflow-x: auto;
 }
 
 .panel > header {
