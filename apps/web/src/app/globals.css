@@ -71,6 +71,14 @@ a {
   margin-top: 18px;
 }
 
+.nav-group-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 4px 10px;
+}
+
 .sidebar nav a {
   padding: 7px 10px;
   border-radius: 7px;

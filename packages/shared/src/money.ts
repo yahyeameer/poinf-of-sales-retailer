@@ -31,7 +31,7 @@ export function minorUnitExponent(currency: string): number {
 export function formatMoney(
   cents: number,
   currency: string,
-  locale?: string,
+  locale: string = "en-US",
 ): string {
   const exponent = minorUnitExponent(currency);
   const amount = cents / 10 ** exponent;
