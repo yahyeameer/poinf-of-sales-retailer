@@ -41,3 +41,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 yarn-error.log*
+
+# TypeScript incremental build cache
+*.tsbuildinfo

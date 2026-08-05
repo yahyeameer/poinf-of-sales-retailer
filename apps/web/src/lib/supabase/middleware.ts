@@ -1,7 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/", "/catalog", "/stock", "/staff", "/settings"];
+// Exact matches, plus a prefix rule for the auth callback routes.
+//
+// This was a `startsWith` check over a list that included "/". Since every path
+// starts with "/", every path counted as public and the redirect below never
+// ran — the whole gate was dead. RLS still refused the data, so the pages
+// rendered empty rather than leaking, but nobody was ever sent to sign in.
+const PUBLIC_PATHS = new Set(["/login", "/signup"]);
+const PUBLIC_PREFIXES = ["/auth/"];
+
+function isPublicPath(pathname: string): boolean {
+  return (
+    PUBLIC_PATHS.has(pathname) ||
+    PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
+}
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -36,16 +50,17 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     const { pathname } = request.nextUrl;
-    const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
-    if (!user && !isPublic) {
+    if (!user && !isPublicPath(pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
-  } catch {
-    // Graceful fallback for local development preview without live DB connection
+  } catch (error) {
+    // Don't lock everyone out because Supabase had a bad minute — but say so,
+    // because an auth check that silently stops running is worth noticing.
+    console.error("[middleware] auth check failed, allowing request through:", error);
   }
 
   return response;

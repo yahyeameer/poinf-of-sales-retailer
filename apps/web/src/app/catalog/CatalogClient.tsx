@@ -1,86 +1,110 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { formatMoney } from "@ai-pos/shared";
 
-interface Product {
+import { createProduct } from "@/app/actions";
+import { DemoBanner } from "@/components/DemoBanner";
+
+export interface Product {
   id: string;
   name: string;
   barcode: string | null;
   price_cents: number;
   stock_on_hand: number;
   reorder_point: number;
-  is_archived: boolean;
+  is_active: boolean;
 }
 
 export function CatalogClient({
   initialProducts,
   currency,
+  canEdit,
+  demoReason,
 }: {
   initialProducts: Product[];
   currency: string;
+  canEdit: boolean;
+  demoReason: string | null;
 }) {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "low" | "archived">("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
 
-  // New Product Form State
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("10");
   const [reorder, setReorder] = useState("5");
 
-  const filteredProducts = products.filter((p) => {
+  const filteredProducts = initialProducts.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.barcode && p.barcode.includes(search));
 
     if (!matchesSearch) return false;
-    if (filter === "active") return !p.is_archived;
-    if (filter === "archived") return p.is_archived;
-    if (filter === "low") return p.stock_on_hand <= p.reorder_point;
+    if (filter === "active") return p.is_active;
+    if (filter === "archived") return !p.is_active;
+    if (filter === "low") return Number(p.stock_on_hand) <= Number(p.reorder_point);
     return true;
   });
 
   function handleAddProduct(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !price) return;
+    const priceValue = parseFloat(price);
+    if (!name.trim() || !Number.isFinite(priceValue)) return;
 
-    const priceCents = Math.round(parseFloat(price) * 100);
-    const newProd: Product = {
-      id: crypto.randomUUID(),
-      name,
-      barcode: barcode.trim() || null,
-      price_cents: priceCents,
-      stock_on_hand: parseInt(stock, 10) || 0,
-      reorder_point: parseInt(reorder, 10) || 5,
-      is_archived: false,
-    };
+    setNotice(null);
+    startTransition(async () => {
+      const result = await createProduct({
+        name,
+        barcode: barcode.trim() || null,
+        priceCents: Math.round(priceValue * 100),
+        openingStock: parseInt(stock, 10) || 0,
+        reorderPoint: parseInt(reorder, 10) || 5,
+      });
 
-    setProducts([newProd, ...products]);
-    setName("");
-    setBarcode("");
-    setPrice("");
-    setShowAddModal(false);
+      setNotice(result);
+      if (result.ok) {
+        setName("");
+        setBarcode("");
+        setPrice("");
+        setShowAddModal(false);
+        // The list is server-rendered; pull it again so the new row is the one
+        // the database actually holds, not an optimistic guess at it.
+        router.refresh();
+      }
+    });
   }
 
   return (
     <div>
+      {demoReason && <DemoBanner reason={demoReason} />}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1>Product Catalog</h1>
           <p className="subtitle">Manage products, prices, barcodes, and inventory thresholds.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          style={{ width: "auto", marginTop: 0 }}
-        >
-          + Add Product
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => { setNotice(null); setShowAddModal(true); }}
+            style={{ width: "auto", marginTop: 0 }}
+          >
+            + Add Product
+          </button>
+        )}
       </div>
+
+      {notice && !showAddModal && (
+        <div className={notice.ok ? "notice success" : "notice"}>{notice.message}</div>
+      )}
 
       <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
         <input
@@ -96,6 +120,7 @@ export function CatalogClient({
               key={f}
               type="button"
               className="chip-button"
+              aria-pressed={filter === f}
               style={{
                 borderColor: filter === f ? "var(--accent)" : "var(--border)",
                 color: filter === f ? "var(--accent)" : "var(--muted)",
@@ -138,12 +163,12 @@ export function CatalogClient({
                     <code>{p.barcode ?? "—"}</code>
                   </td>
                   <td className="num">{formatMoney(p.price_cents, currency)}</td>
-                  <td className="num">{p.stock_on_hand}</td>
-                  <td className="num">{p.reorder_point}</td>
+                  <td className="num">{Number(p.stock_on_hand)}</td>
+                  <td className="num">{Number(p.reorder_point)}</td>
                   <td>
-                    {p.is_archived ? (
+                    {!p.is_active ? (
                       <span className="pill danger">Archived</span>
-                    ) : p.stock_on_hand <= p.reorder_point ? (
+                    ) : Number(p.stock_on_hand) <= Number(p.reorder_point) ? (
                       <span className="pill warn">Low Stock</span>
                     ) : (
                       <span className="pill">Active</span>
@@ -157,30 +182,13 @@ export function CatalogClient({
       </section>
 
       {showAddModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 100,
-          }}
-        >
-          <form
-            onSubmit={handleAddProduct}
-            style={{
-              background: "var(--surface)",
-              padding: "24px",
-              borderRadius: "var(--radius)",
-              width: "100%",
-              maxWidth: "400px",
-              border: "1px solid var(--border)",
-            }}
-          >
+        <div className="modal-backdrop">
+          <form onSubmit={handleAddProduct} className="modal">
             <h2 style={{ fontSize: "18px", marginTop: 0 }}>Add New Product</h2>
-            <label>Product Name</label>
+
+            <label htmlFor="p-name">Product Name</label>
             <input
+              id="p-name"
               type="text"
               required
               placeholder="e.g. Fresh Milk 1L"
@@ -188,18 +196,21 @@ export function CatalogClient({
               onChange={(e) => setName(e.target.value)}
             />
 
-            <label>Barcode (Optional)</label>
+            <label htmlFor="p-barcode">Barcode (Optional)</label>
             <input
+              id="p-barcode"
               type="text"
               placeholder="e.g. 600123456789"
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
             />
 
-            <label>Selling Price ({currency})</label>
+            <label htmlFor="p-price">Selling Price ({currency})</label>
             <input
+              id="p-price"
               type="number"
               step="0.01"
+              min="0"
               required
               placeholder="2.50"
               value={price}
@@ -208,28 +219,37 @@ export function CatalogClient({
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
               <div>
-                <label>Stock on Hand</label>
+                <label htmlFor="p-stock">Opening Stock</label>
                 <input
+                  id="p-stock"
                   type="number"
+                  min="0"
                   value={stock}
                   onChange={(e) => setStock(e.target.value)}
                 />
               </div>
               <div>
-                <label>Reorder Point</label>
+                <label htmlFor="p-reorder">Reorder Point</label>
                 <input
+                  id="p-reorder"
                   type="number"
+                  min="0"
                   value={reorder}
                   onChange={(e) => setReorder(e.target.value)}
                 />
               </div>
             </div>
 
+            {notice && !notice.ok && <div className="notice">{notice.message}</div>}
+
             <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-              <button type="submit">Save Product</button>
+              <button type="submit" disabled={pending}>
+                {pending ? "Saving…" : "Save Product"}
+              </button>
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
+                disabled={pending}
                 style={{ background: "transparent", color: "var(--muted)", border: "1px solid var(--border)" }}
               >
                 Cancel

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { formatMoney } from "@ai-pos/shared";
 
+import { DemoBanner } from "@/components/DemoBanner";
+
 interface ReceiptItem {
   name: string;
   qty: number;
@@ -15,16 +17,19 @@ interface Receipt {
   payment_method: string;
   total_cents: number;
   items: ReceiptItem[];
+  voided?: boolean;
 }
 
 export function ReceiptsClient({
   initialReceipts,
   currency,
   shopName,
+  demoReason,
 }: {
   initialReceipts: Receipt[];
   currency: string;
   shopName: string;
+  demoReason: string | null;
 }) {
   const [receipts] = useState<Receipt[]>(initialReceipts);
   const [activeReceipt, setActiveReceipt] = useState<Receipt | null>(null);
@@ -41,7 +46,9 @@ export function ReceiptsClient({
 
   return (
     <div>
-      <h1>Sales History & Receipts</h1>
+      {demoReason && <DemoBanner reason={demoReason} />}
+
+      <h1>Sales History &amp; Receipts</h1>
       <p className="subtitle">View past customer receipts, generate digital copies, or share via WhatsApp.</p>
 
       <section className="panel">

@@ -51,9 +51,6 @@ export default async function SettingsPage() {
             <span className="pill" style={{ color: "var(--accent)", padding: "4px 10px" }}>
               ● Offline Ledger Trigger Active
             </span>
-            <span className="pill" style={{ color: "var(--accent)", padding: "4px 10px" }}>
-              ● Demo Fallback Operational
-            </span>
           </div>
         </section>
       </div>

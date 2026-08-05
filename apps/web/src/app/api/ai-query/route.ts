@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatMoney } from "@ai-pos/shared";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
@@ -16,6 +17,13 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Every figure below was hardcoded to "$". Shops on this product are far
+    // more likely to be pricing in KES, SOS or ETB, and being told their
+    // takings are in dollars is worse than showing no symbol at all.
+    const { data: tenant } = await supabase.from("tenants").select("currency").single();
+    const currency = tenant?.currency ?? "USD";
+    const money = (cents: number) => formatMoney(Math.round(cents), currency);
 
     const lower = query.toLowerCase();
 
@@ -51,10 +59,10 @@ export async function POST(req: Request) {
 
       const totalRev = (sales ?? []).reduce((acc, r) => acc + Number(r.revenue_cents ?? 0), 0);
       const totalTx = (sales ?? []).reduce((acc, r) => acc + Number(r.transactions ?? 0), 0);
-      const avg = totalTx > 0 ? (totalRev / totalTx / 100).toFixed(2) : "0.00";
+      const avg = totalTx > 0 ? totalRev / totalTx : 0;
 
       return NextResponse.json({
-        answer: `Over the past 7 days, your average transaction value was $${avg} across ${totalTx} completed transactions.`,
+        answer: `Over the past 7 days, your average transaction value was ${money(avg)} across ${totalTx} completed transactions.`,
       });
     }
 
@@ -77,11 +85,10 @@ export async function POST(req: Request) {
       const cardPct = total > 0 ? Math.round((card / total) * 100) : 0;
 
       return NextResponse.json({
-        answer: `7-day Payment Breakdown: Cash: ${cashPct}% ($${(cash / 100).toFixed(
-          2
-        )}), Mobile Money: ${mobilePct}% ($${(mobile / 100).toFixed(
-          2
-        )}), Card: ${cardPct}% ($${(card / 100).toFixed(2)}).`,
+        answer:
+          `7-day payment breakdown — cash ${cashPct}% (${money(cash)}), ` +
+          `mobile money ${mobilePct}% (${money(mobile)}), ` +
+          `card ${cardPct}% (${money(card)}).`,
       });
     }
 

@@ -1,23 +1,20 @@
+import { redirect } from "next/navigation";
+
 import { Shell } from "@/components/Shell";
-import { createClient } from "@/lib/supabase/server";
+import { getTenantContext } from "@/lib/tenant";
 import { ImportClient } from "./ImportClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function CSVImportPage() {
-  let shopName = "Demo Retail Shop";
-
-  try {
-    const supabase = await createClient();
-    const { data: tenant } = await supabase.from("tenants").select("name").single();
-    if (tenant?.name) shopName = tenant.name;
-  } catch {
-    // Demo fallback for local preview
-  }
+  const ctx = await getTenantContext();
+  // Import writes to the catalog, so unlike the read-only pages there is no
+  // useful preview to show a signed-out visitor.
+  if (!ctx) redirect("/login?next=/inventory/import");
 
   return (
-    <Shell shopName={shopName}>
-      <ImportClient />
+    <Shell shopName={ctx.shopName}>
+      <ImportClient currency={ctx.currency} />
     </Shell>
   );
 }

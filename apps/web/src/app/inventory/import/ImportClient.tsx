@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+
+import { importProducts } from "@/app/actions";
 
 interface ParsedRow {
   name: string;
@@ -17,17 +20,20 @@ Sparkling Water 1L,600555443322,1.80,30
 Orange Juice 250ml,600888999000,1.20,25
 Invalid Item,,abc,10`;
 
-export function ImportClient() {
+export function ImportClient({ currency }: { currency: string }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
   const [csvText, setCsvText] = useState(SAMPLE_CSV);
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
-  const [imported, setImported] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
+  const [done, setDone] = useState(false);
 
   function parseCSV() {
     const lines = csvText.trim().split("\n");
     if (lines.length <= 1) return;
 
-    const dataLines = lines.slice(1);
-    const rows: ParsedRow[] = dataLines.map((line) => {
+    const rows: ParsedRow[] = lines.slice(1).map((line) => {
       const parts = line.split(",").map((p) => p.trim());
       const name = parts[0] || "";
       const barcode = parts[1] || "";
@@ -42,40 +48,63 @@ export function ImportClient() {
       if (!isValidName) error = "Missing product name";
       else if (!isValidPrice) error = "Invalid price format";
 
-      return {
-        name,
-        barcode,
-        price: priceStr,
-        stock: stockStr,
-        valid: isValidName && isValidPrice,
-        error,
-      };
+      return { name, barcode, price: priceStr, stock: stockStr, valid: isValidName && isValidPrice, error };
     });
 
     setParsedRows(rows);
-    setImported(false);
+    setNotice(null);
+    setDone(false);
   }
 
   function handleImport() {
-    const validCount = parsedRows.filter((r) => r.valid).length;
-    setImported(true);
-    alert(`Successfully imported ${validCount} valid products into store catalog!`);
+    const valid = parsedRows.filter((r) => r.valid);
+    if (valid.length === 0) return;
+
+    setNotice(null);
+    startTransition(async () => {
+      // Previously this fired an alert claiming success and wrote nothing at
+      // all. Now the message reports what the database actually accepted.
+      const result = await importProducts(
+        valid.map((r) => ({
+          name: r.name,
+          barcode: r.barcode || null,
+          priceCents: Math.round(parseFloat(r.price) * 100),
+          stock: parseInt(r.stock, 10) || 0,
+        })),
+      );
+
+      setNotice(result);
+      if (result.ok) {
+        setDone(true);
+        router.refresh();
+      }
+    });
   }
+
+  const validCount = parsedRows.filter((r) => r.valid).length;
 
   return (
     <div>
-      <h1>CSV Catalog Bulk Import Wizard</h1>
-      <p className="subtitle">Import product inventory in bulk from standard CSV spreadsheet files.</p>
+      <h1>CSV Catalog Bulk Import</h1>
+      <p className="subtitle">Import product inventory in bulk from a standard CSV spreadsheet.</p>
+
+      {notice && (
+        <div className={notice.ok ? "notice success" : "notice"}>{notice.message}</div>
+      )}
 
       <section className="panel" style={{ padding: "20px" }}>
-        <h2 style={{ fontSize: "16px", marginTop: 0 }}>Step 1: Paste CSV Data or Load Sample</h2>
+        <h2 style={{ fontSize: "16px", marginTop: 0 }}>Step 1 — Paste your CSV</h2>
+        <p className="hint" style={{ marginTop: 0 }}>
+          Columns: name, barcode, price, quantity. The first row is treated as a header.
+        </p>
         <textarea
           rows={6}
           value={csvText}
           onChange={(e) => setCsvText(e.target.value)}
+          aria-label="CSV data"
           style={{
             width: "100%",
-            fontFamily: "monospace",
+            fontFamily: "var(--mono, monospace)",
             fontSize: "13px",
             padding: "10px",
             borderRadius: "7px",
@@ -87,14 +116,14 @@ export function ImportClient() {
 
         <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
           <button type="button" onClick={parseCSV} style={{ width: "auto", marginTop: 0 }}>
-            Parse CSV & Validate Headers
+            Check rows
           </button>
           <button
             type="button"
-            onClick={() => setCsvText(SAMPLE_CSV)}
+            onClick={() => { setCsvText(SAMPLE_CSV); setParsedRows([]); setNotice(null); setDone(false); }}
             style={{ width: "auto", marginTop: 0, background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" }}
           >
-            Reset Sample CSV
+            Reset to sample
           </button>
         </div>
       </section>
@@ -102,14 +131,14 @@ export function ImportClient() {
       {parsedRows.length > 0 && (
         <section className="panel">
           <header>
-            <span>Step 2: Pre-Import Validation Preview ({parsedRows.length} Items)</span>
+            <span>Step 2 — Review ({parsedRows.length} rows, {validCount} ready)</span>
             <button
               type="button"
               onClick={handleImport}
-              disabled={imported || parsedRows.filter((r) => r.valid).length === 0}
+              disabled={pending || done || validCount === 0}
               style={{ width: "auto", marginTop: 0, padding: "4px 14px" }}
             >
-              {imported ? "Import Complete ✓" : `Import ${parsedRows.filter((r) => r.valid).length} Valid SKUs`}
+              {done ? "Imported ✓" : pending ? "Importing…" : `Import ${validCount} products`}
             </button>
           </header>
 
@@ -118,9 +147,9 @@ export function ImportClient() {
               <tr>
                 <th>Product Name</th>
                 <th>Barcode</th>
-                <th>Price</th>
-                <th>Stock Quantity</th>
-                <th>Validation Status</th>
+                <th className="num">Price ({currency})</th>
+                <th className="num">Quantity</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -128,8 +157,8 @@ export function ImportClient() {
                 <tr key={idx}>
                   <td style={{ fontWeight: 550 }}>{row.name || "—"}</td>
                   <td><code>{row.barcode || "—"}</code></td>
-                  <td>${row.price}</td>
-                  <td>{row.stock}</td>
+                  <td className="num">{row.price}</td>
+                  <td className="num">{row.stock}</td>
                   <td>
                     {row.valid ? (
                       <span className="pill" style={{ color: "var(--accent)" }}>Ready</span>

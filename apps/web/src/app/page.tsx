@@ -1,6 +1,7 @@
 import { formatMoney } from "@ai-pos/shared";
 import { Shell } from "@/components/Shell";
 import { AiAssistant } from "@/components/AiAssistant";
+import { DemoBanner } from "@/components/DemoBanner";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,12 @@ export default async function DashboardPage() {
   let userRole = "owner";
   let currency = "USD";
   let oversold = 0;
+
+  // Null means the figures below are the shop's own. Anything else is the
+  // reason they aren't, and gets shown at the top of the page — invented
+  // revenue that looks identical to real revenue is the one failure mode a
+  // till cannot have.
+  let demoReason: string | null = null;
   let rows: any[] = [
     { day: isoDay(0), transactions: 14, revenue_cents: 18500, cash_cents: 12000, mobile_money_cents: 6500, card_cents: 0 },
     { day: isoDay(1), transactions: 22, revenue_cents: 31200, cash_cents: 19000, mobile_money_cents: 12200, card_cents: 0 },
@@ -94,9 +101,23 @@ export default async function DashboardPage() {
       if (dbLowStock) lowStock = dbLowStock;
       if (dbTopMovers) topMovers = dbTopMovers;
       if (dbOversold !== null) oversold = dbOversold as any;
+
+      // An empty result is a legitimate answer for a brand-new shop; showing
+      // three days of invented takings instead is not.
+      if (!daily || daily.length === 0) {
+        rows = [];
+        lowStock = dbLowStock ?? [];
+        topMovers = dbTopMovers ?? [];
+      }
+    } else {
+      demoReason = "You're not signed in, so these are sample figures.";
     }
-  } catch {
-    // Demo fallback for local development preview
+  } catch (error) {
+    demoReason =
+      error instanceof Error
+        ? `Couldn't reach the database (${error.message}), so these are sample figures.`
+        : "Couldn't reach the database, so these are sample figures.";
+    console.error("[dashboard] falling back to demo data:", error);
   }
 
   const today = rows.find((r) => r.day === isoDay(0));
@@ -141,6 +162,8 @@ export default async function DashboardPage() {
         {userName ? `${userName} · ` : ""}
         {userRole}
       </p>
+
+      {demoReason && <DemoBanner reason={demoReason} />}
 
       <AiAssistant />
 
