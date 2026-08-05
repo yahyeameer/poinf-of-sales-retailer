@@ -469,3 +469,170 @@ button:disabled {
   margin: 4px 0 0;
 }
 
+
+/* ===================================================================
+   The till
+   Built for a phone held one-handed in a busy shop: 56px minimum hit
+   area (44 is a web guideline, not a retail one), tabular figures
+   everywhere money appears, and the total as the largest object on
+   screen because the cashier reads it upside down across a counter.
+   =================================================================== */
+
+.till-gate { max-width: 620px; }
+
+.till-bar {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: center; justify-content: space-between;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius);
+  padding: 10px 14px; margin-bottom: 16px;
+}
+.till-bar-label { font-weight: 600; color: var(--accent); margin-right: 8px; }
+.till-bar-meta { font-size: 13px; color: var(--muted); }
+.till-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.till-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 18px; align-items: start;
+}
+@media (max-width: 860px) { .till-grid { grid-template-columns: 1fr; } }
+
+.till-products input[type="search"] {
+  width: 100%; min-height: 56px; font-size: 16px; margin-bottom: 12px;
+}
+
+.key-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.key {
+  min-height: 76px; width: 100%; margin: 0;
+  display: flex; flex-direction: column; justify-content: space-between;
+  text-align: left; gap: 8px;
+  padding: 11px 12px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  cursor: pointer;
+}
+.key:hover { border-color: var(--accent); }
+.key.out { opacity: .55; }
+.key-name { font-size: 13.5px; font-weight: 550; line-height: 1.3; }
+.key-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.key-price { font-weight: 620; color: var(--accent); font-variant-numeric: tabular-nums; }
+.key-stock { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.till-cart {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); position: sticky; top: 18px;
+}
+.till-cart > header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 15px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px;
+}
+
+.cart-lines { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; }
+.cart-lines li { padding: 10px 15px; border-bottom: 1px solid var(--border); }
+.cart-line-main { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.cart-name { font-weight: 550; font-size: 14px; }
+.cart-total { font-variant-numeric: tabular-nums; font-weight: 600; }
+.cart-line-controls { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.cart-line-controls button {
+  width: 40px; height: 40px; min-height: 40px; margin: 0; padding: 0;
+  font-size: 19px; line-height: 1; border-radius: 8px;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+}
+.cart-line-controls .qty {
+  min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600;
+}
+.cart-unit { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cart-remove {
+  margin-left: auto !important; width: auto !important; height: auto !important;
+  min-height: 0 !important; padding: 4px 8px !important; font-size: 12px !important;
+  background: transparent !important; color: var(--danger) !important; border: none !important;
+}
+
+.cart-totals { padding: 12px 15px; border-top: 1px solid var(--border); }
+.cart-totals .row {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-variant-numeric: tabular-nums; padding: 3px 0;
+}
+.cart-totals .row.muted { color: var(--muted); font-size: 13px; }
+.cart-totals .row.grand {
+  font-size: 26px; font-weight: 680; letter-spacing: -.02em;
+  margin-top: 7px; padding-top: 9px; border-top: 1px solid var(--border);
+}
+
+.cart-actions { display: flex; flex-direction: column; gap: 8px; padding: 0 15px 15px; }
+.cart-actions .charge { min-height: 60px; font-size: 17px; font-weight: 620; margin: 0; }
+
+button.ghost, .ghost {
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--border); margin: 0;
+}
+button.ghost:hover { color: var(--text); border-color: var(--border-strong, var(--muted)); }
+.linky {
+  background: none !important; border: none !important; color: var(--accent) !important;
+  padding: 4px 0 !important; margin: 0 !important; width: auto !important;
+  min-height: 0 !important; font-size: 13px !important; cursor: pointer;
+}
+
+.due, .change-due {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 12px 14px; border-radius: 9px; margin-bottom: 14px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.due strong, .change-due strong {
+  font-size: 27px; font-weight: 680; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums; color: var(--accent);
+}
+
+.tender { display: grid; grid-template-columns: 1fr 100px 100px auto; gap: 7px; margin-bottom: 8px; align-items: center; }
+.tender select, .tender input { margin: 0; min-height: 46px; }
+@media (max-width: 520px) { .tender { grid-template-columns: 1fr 1fr; } }
+
+.checkout-summary { margin: 14px 0; padding-top: 11px; border-top: 1px solid var(--border); }
+.checkout-summary .row {
+  display: flex; justify-content: space-between; padding: 3px 0;
+  font-variant-numeric: tabular-nums;
+}
+.checkout-summary .row.warn-row { color: var(--warn); font-weight: 600; }
+.checkout-summary .row.grand { font-size: 21px; font-weight: 660; color: var(--accent); }
+
+.modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+.modal-actions button { margin: 0; min-height: 48px; }
+
+.paper {
+  background: var(--bg); border: 1px dashed var(--border);
+  border-radius: 6px; padding: 14px;
+  font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; line-height: 1.7;
+}
+.paper .row { display: flex; justify-content: space-between; gap: 12px; }
+.paper .row.tot { font-weight: 700; font-size: 14px; }
+.paper hr { border: none; border-top: 1px dashed var(--border); margin: 8px 0; }
+
+.held-list { list-style: none; margin: 0; padding: 0; }
+.held-list li {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.held-list button { margin: 0; width: auto; min-height: 42px; padding: 0 14px; }
+
+/* The one thing staff open the app to do. Weighted so it reads as the
+   primary action rather than the first item in a list. */
+.sidebar nav a.nav-primary {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.sidebar nav a.nav-primary:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.refund-lines { list-style: none; margin: 12px 0 0; padding: 0; }
+.refund-lines li {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.refund-lines input { width: 78px; text-align: right; font-variant-numeric: tabular-nums; }

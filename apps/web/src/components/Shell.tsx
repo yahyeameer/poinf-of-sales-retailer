@@ -14,7 +14,10 @@ export function Shell({
         <div className="shop-name">{shopName}</div>
 
         <nav>
-          <div className="nav-group-title">MAIN</div>
+          <div className="nav-group-title">SELL</div>
+          <Link href="/till" className="nav-primary">Till</Link>
+
+          <div className="nav-group-title" style={{ marginTop: "14px" }}>MAIN</div>
           <Link href="/">Dashboard</Link>
           <Link href="/catalog">Catalog</Link>
           <Link href="/stock">Stock Ledger</Link>
