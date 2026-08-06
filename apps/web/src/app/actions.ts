@@ -52,6 +52,9 @@ export async function createProduct(input: {
   if (input.openingStock > 0) {
     const { error: ledgerError } = await supabase.from("stock_movements").insert({
       tenant_id: ctx.tenantId,
+      // Every movement says where now. Opening stock lands wherever the person
+      // adding the product is standing.
+      location_id: ctx.locationId,
       product_id: product.id,
       delta: input.openingStock,
       reason: "adjustment",
@@ -118,6 +121,7 @@ export async function recordStockAdjustment(input: {
       p_quantity: input.delta,
       p_unit_cost_cents: input.unitCostCents,
       p_note: input.note,
+      p_location_id: ctx.locationId,
     });
 
     if (error) return { ok: false, message: readableError(error) };
@@ -137,6 +141,7 @@ export async function recordStockAdjustment(input: {
 
   const { error } = await supabase.from("stock_movements").insert({
     tenant_id: ctx.tenantId,
+    location_id: ctx.locationId,
     product_id: input.productId,
     delta: input.delta,
     reason: REASON_MAP[input.reason],
@@ -190,6 +195,7 @@ export async function importProducts(rows: ImportRow[]): Promise<ActionResult> {
     .filter(({ stock }) => stock > 0)
     .map(({ product, stock }) => ({
       tenant_id: ctx.tenantId,
+      location_id: ctx.locationId,
       product_id: product.id,
       delta: stock,
       reason: "adjustment" as const,

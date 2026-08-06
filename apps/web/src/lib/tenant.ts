@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 
+export interface ShopLocation {
+  id: string;
+  name: string;
+  kind: "shop" | "warehouse" | "van";
+  is_default: boolean;
+}
+
 export interface TenantContext {
   userId: string;
   tenantId: string;
@@ -7,6 +14,14 @@ export interface TenantContext {
   userName: string;
   shopName: string;
   currency: string;
+
+  /** Every location this user may see. One entry for a pinned cashier. */
+  locations: ShopLocation[];
+  /** Where writes land unless told otherwise. */
+  locationId: string | null;
+  locationName: string;
+  /** True when staff are tied to a single location and cannot switch. */
+  pinnedToLocation: boolean;
 }
 
 /**
@@ -30,17 +45,34 @@ export async function getTenantContext(): Promise<TenantContext | null> {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("tenant_id, role, name")
+    .select("tenant_id, role, name, location_id")
     .eq("id", user.id)
     .single();
 
   if (!profile?.tenant_id) return null;
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("name, currency")
-    .eq("id", profile.tenant_id)
-    .single();
+  const [{ data: tenant }, { data: locations }] = await Promise.all([
+    supabase.from("tenants").select("name, currency").eq("id", profile.tenant_id).single(),
+    supabase
+      .from("locations")
+      .select("id, name, kind, is_default")
+      .eq("is_active", true)
+      .order("is_default", { ascending: false })
+      .order("name", { ascending: true }),
+  ]);
+
+  const all = (locations ?? []) as ShopLocation[];
+
+  // A pinned user sees only their own location. RLS enforces this on the data;
+  // filtering here just keeps the switcher honest about what it offers.
+  const pinned = profile.location_id != null;
+  const visible = pinned ? all.filter((l) => l.id === profile.location_id) : all;
+
+  const active =
+    visible.find((l) => l.id === profile.location_id) ??
+    visible.find((l) => l.is_default) ??
+    visible[0] ??
+    null;
 
   return {
     userId: user.id,
@@ -49,5 +81,9 @@ export async function getTenantContext(): Promise<TenantContext | null> {
     userName: profile.name ?? user.email ?? "",
     shopName: tenant?.name ?? "Your shop",
     currency: tenant?.currency ?? "USD",
+    locations: visible,
+    locationId: active?.id ?? null,
+    locationName: active?.name ?? "No location",
+    pinnedToLocation: pinned,
   };
 }

@@ -69,6 +69,7 @@ export function TillClient({
   taxRate,
   taxInclusive,
   cashierName,
+  locationName,
   canRefund,
 }: {
   products: TillProduct[];
@@ -78,6 +79,7 @@ export function TillClient({
   taxRate: number;
   taxInclusive: boolean;
   cashierName: string;
+  locationName: string;
   canRefund: boolean;
 }) {
   const router = useRouter();
@@ -267,8 +269,10 @@ export function TillClient({
         <div>
           <span className="till-bar-label">Shift open</span>
           <span className="till-bar-meta">
-            since {new Date(shift.opened_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            {" · "}float {formatMoney(shift.opening_float_cents, currency)}
+            {locationName}
+            {" · since "}
+            {new Date(shift.opened_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {" · float "}{formatMoney(shift.opening_float_cents, currency)}
             {" · "}{cashierName}
           </span>
         </div>

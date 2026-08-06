@@ -31,6 +31,7 @@ export default async function StockPage() {
           lowStock={DEMO_LOW_STOCK}
           products={DEMO_PRODUCTS}
           currency="USD"
+          locationName="Demo shop"
           canEdit={false}
           demoReason="You're not signed in, so this is a preview of what the ledger looks like."
         />
@@ -52,14 +53,16 @@ export default async function StockPage() {
 
       supabase
         .from("v_low_stock")
-        .select("product_id, name, stock_on_hand, reorder_point")
+        .select("product_id, name, stock_on_hand, reorder_point, location_name")
         .order("stock_on_hand", { ascending: true }),
 
+      // Per-location balances: the adjustment dialog has to show what is on
+      // this shelf, not what the business owns across every site.
       supabase
-        .from("products")
-        .select("id, name, stock_on_hand")
-        .eq("is_active", true)
-        .order("name", { ascending: true }),
+        .from("v_location_stock")
+        .select("product_id, product_name, on_hand")
+        .eq("location_id", ctx.locationId ?? "")
+        .order("product_name", { ascending: true }),
     ]);
 
   if (movementsError) {
@@ -71,8 +74,13 @@ export default async function StockPage() {
       <StockClient
         initialMovements={movementsError ? DEMO_MOVEMENTS : ((movements ?? []) as Movement[])}
         lowStock={(lowStock ?? []) as LowStockItem[]}
-        products={(products ?? []) as ProductOption[]}
+        products={(products ?? []).map((r) => ({
+          id: r.product_id as string,
+          name: r.product_name as string,
+          stock_on_hand: Number(r.on_hand),
+        }))}
         currency={ctx.currency}
+        locationName={ctx.locationName}
         canEdit
         demoReason={movementsError ? `Couldn't load the ledger: ${movementsError.message}` : null}
       />

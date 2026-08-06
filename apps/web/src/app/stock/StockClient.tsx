@@ -21,6 +21,8 @@ export interface LowStockItem {
   name: string;
   stock_on_hand: number;
   reorder_point: number;
+  /** Low stock is per-location now: plentiful in the warehouse, empty on the shelf. */
+  location_name?: string;
 }
 
 export interface ProductOption {
@@ -49,6 +51,7 @@ export function StockClient({
   lowStock,
   products,
   currency,
+  locationName,
   canEdit,
   demoReason,
 }: {
@@ -56,6 +59,7 @@ export function StockClient({
   lowStock: LowStockItem[];
   products: ProductOption[];
   currency: string;
+  locationName: string;
   canEdit: boolean;
   demoReason: string | null;
 }) {
@@ -104,7 +108,10 @@ export function StockClient({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1>Stock &amp; Inventory Ledger</h1>
-          <p className="subtitle">Track real-time inventory balances and append-only movement logs.</p>
+          <p className="subtitle">
+            Balances at <strong>{locationName}</strong>. Adjustments you record here land
+            at this location.
+          </p>
         </div>
         {canEdit && (
           <button
@@ -134,6 +141,7 @@ export function StockClient({
             <thead>
               <tr>
                 <th>Product</th>
+                <th>Location</th>
                 <th className="num">Stock on Hand</th>
                 <th className="num">Reorder Point</th>
                 <th>Alert Status</th>
@@ -141,8 +149,9 @@ export function StockClient({
             </thead>
             <tbody>
               {lowStock.map((item) => (
-                <tr key={item.product_id}>
+                <tr key={`${item.product_id}-${item.location_name ?? ""}`}>
                   <td style={{ fontWeight: 550 }}>{item.name}</td>
+                  <td>{item.location_name ?? "—"}</td>
                   <td className="num">{Number(item.stock_on_hand)}</td>
                   <td className="num">{Number(item.reorder_point)}</td>
                   <td>

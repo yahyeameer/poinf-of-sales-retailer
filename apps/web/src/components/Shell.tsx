@@ -21,6 +21,7 @@ export function Shell({
           <Link href="/">Dashboard</Link>
           <Link href="/catalog">Catalog</Link>
           <Link href="/stock">Stock Ledger</Link>
+          <Link href="/locations">Locations</Link>
           <Link href="/analytics">Analytics</Link>
 
           <div className="nav-group-title" style={{ marginTop: "14px" }}>TOOLS</div>

@@ -17,11 +17,13 @@ export default async function TillPage() {
 
   const [{ data: products }, { data: shift }, { data: parked }, { data: tenant }] =
     await Promise.all([
+      // Stock comes from this location's shelf, not the org-wide total — the
+      // number beside a product on the till has to be what is actually here.
       supabase
-        .from("products")
-        .select("id, name, barcode, price_cents, stock_on_hand, unit")
-        .eq("is_active", true)
-        .order("name", { ascending: true })
+        .from("v_location_stock")
+        .select("product_id, product_name, barcode, on_hand, price_cents")
+        .eq("location_id", ctx.locationId ?? "")
+        .order("product_name", { ascending: true })
         .limit(500),
 
       supabase
@@ -39,16 +41,28 @@ export default async function TillPage() {
       supabase.from("tenants").select("tax_rate, tax_inclusive").single(),
     ]);
 
+  // v_location_stock names its columns after the join, so flatten to the shape
+  // the till already speaks rather than teaching the till a second shape.
+  const tillProducts: TillProduct[] = (products ?? []).map((row) => ({
+    id: row.product_id as string,
+    name: row.product_name as string,
+    barcode: (row.barcode as string | null) ?? null,
+    price_cents: Number(row.price_cents),
+    stock_on_hand: Number(row.on_hand),
+    unit: "each",
+  }));
+
   return (
     <Shell shopName={ctx.shopName}>
       <TillClient
-        products={(products ?? []) as TillProduct[]}
+        products={tillProducts}
         openShift={(shift ?? null) as OpenShift | null}
         parked={(parked ?? []) as ParkedSale[]}
         currency={ctx.currency}
         taxRate={Number(tenant?.tax_rate ?? 0)}
         taxInclusive={tenant?.tax_inclusive ?? true}
         cashierName={ctx.userName}
+        locationName={ctx.locationName}
         canRefund={ctx.role === "owner" || ctx.role === "manager"}
       />
     </Shell>
