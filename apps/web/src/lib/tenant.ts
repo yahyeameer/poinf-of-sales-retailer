@@ -1,4 +1,7 @@
+import { cookies } from "next/headers";
+
 import { createClient } from "@/lib/supabase/server";
+import { ACTIVE_LOCATION_COOKIE } from "@/lib/location";
 
 export interface ShopLocation {
   id: string;
@@ -68,8 +71,16 @@ export async function getTenantContext(): Promise<TenantContext | null> {
   const pinned = profile.location_id != null;
   const visible = pinned ? all.filter((l) => l.id === profile.location_id) : all;
 
+  // Precedence: a pinned assignment always wins, then whatever the user last
+  // switched to, then the shop's default. The cookie is looked up against the
+  // visible list rather than trusted directly, so a stale or forged value falls
+  // back to the default instead of pointing writes at another shop.
+  const store = await cookies();
+  const chosenId = store.get(ACTIVE_LOCATION_COOKIE)?.value;
+
   const active =
     visible.find((l) => l.id === profile.location_id) ??
+    visible.find((l) => l.id === chosenId) ??
     visible.find((l) => l.is_default) ??
     visible[0] ??
     null;
