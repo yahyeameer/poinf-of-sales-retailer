@@ -1,7 +1,23 @@
 import { Shell } from "@/components/Shell";
 import { createClient } from "@/lib/supabase/server";
+import { getShopBranding } from "@/lib/shop";
 import { getTenantContext } from "@/lib/tenant";
 import { ReceiptsClient } from "./ReceiptsClient";
+import type { ReceiptShop } from "@/components/Receipt";
+
+/** Sensible defaults for the signed-out preview, where there is no shop row. */
+const DEMO_SHOP: ReceiptShop = {
+  name: "Demo Retail Shop",
+  logoUrl: null,
+  phone: null,
+  address: null,
+  taxNumber: null,
+  receiptHeader: null,
+  receiptFooter: null,
+  receiptShowLogo: false,
+  receiptShowTaxLine: true,
+  receiptPaperMm: 80,
+};
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +65,7 @@ export default async function ReceiptsPage() {
           initialReceipts={DEMO_RECEIPTS}
           currency="USD"
           shopName="Demo Retail Shop"
+          shop={DEMO_SHOP}
           canRefund={false}
           demoReason="You're not signed in, so this is a sample receipt."
         />
@@ -57,6 +74,7 @@ export default async function ReceiptsPage() {
   }
 
   const supabase = await createClient();
+  const branding = await getShopBranding(ctx.tenantId);
 
   // This page previously fetched only the shop name and rendered three
   // hardcoded receipts, so a shop with hundreds of real sales still saw
@@ -120,6 +138,7 @@ export default async function ReceiptsPage() {
         initialReceipts={error ? DEMO_RECEIPTS : receipts}
         currency={ctx.currency}
         shopName={ctx.shopName}
+        shop={branding ? { ...branding } : DEMO_SHOP}
         canRefund={ctx.role === "owner" || ctx.role === "manager"}
         demoReason={error ? `Couldn't load your sales: ${error.message}` : null}
       />

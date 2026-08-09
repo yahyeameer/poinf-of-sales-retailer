@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { formatMoney } from "@ai-pos/shared";
 
 import { DemoBanner } from "@/components/DemoBanner";
+// Aliased: this file already has a local `Receipt` interface for a row of
+// sale data, which is a different thing from the printed document.
+import { Receipt as ReceiptPaper, type ReceiptShop } from "@/components/Receipt";
 import { refundSale } from "@/app/till/actions";
 
 interface ReceiptItem {
@@ -30,12 +33,14 @@ export function ReceiptsClient({
   initialReceipts,
   currency,
   shopName,
+  shop,
   canRefund,
   demoReason,
 }: {
   initialReceipts: Receipt[];
   currency: string;
   shopName: string;
+  shop: ReceiptShop;
   canRefund: boolean;
   demoReason: string | null;
 }) {
@@ -195,48 +200,27 @@ export function ReceiptsClient({
             zIndex: 100,
           }}
         >
-          <div
-            style={{
-              background: "#ffffff",
-              color: "#000000",
-              padding: "24px",
-              borderRadius: "var(--radius)",
-              width: "100%",
-              maxWidth: "340px",
-              fontFamily: "monospace",
-              border: "1px solid var(--border)",
-            }}
-          >
-            <div style={{ textAlign: "center", fontWeight: "700", fontSize: "16px" }}>
-              {shopName}
-            </div>
-            <div style={{ textAlign: "center", fontSize: "12px", color: "#666", marginBottom: "14px" }}>
-              Official Sales Receipt
-            </div>
+          <div>
+            {/* The same component the settings preview renders, so a layout an
+                owner designs there is exactly what a customer is handed. */}
+            <ReceiptPaper
+              shop={shop}
+              sale={{
+                ref: activeReceipt.id,
+                createdAt: activeReceipt.created_at,
+                paymentMethod: activeReceipt.payment_method,
+                items: activeReceipt.items.map((i) => ({
+                  name: i.name,
+                  qty: i.qty,
+                  priceCents: i.price_cents,
+                })),
+                totalCents: activeReceipt.total_cents,
+                isRefund: activeReceipt.isRefund,
+                voided: activeReceipt.voided,
+              }}
+            />
 
-            <div style={{ borderTop: "1px dashed #ccc", borderBottom: "1px dashed #ccc", padding: "10px 0", margin: "10px 0" }}>
-              {activeReceipt.items.map((item, idx) => (
-                <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
-                  <span>
-                    {item.qty}x {item.name}
-                  </span>
-                  <span>{formatMoney(item.price_cents * item.qty, currency)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "700", fontSize: "15px" }}>
-              <span>TOTAL</span>
-              <span>{formatMoney(activeReceipt.total_cents, currency)}</span>
-            </div>
-
-            <div style={{ fontSize: "11px", color: "#666", marginTop: "10px" }}>
-              Payment: {activeReceipt.payment_method.toUpperCase()}
-              <br />
-              Ref: {activeReceipt.id}
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
               <button type="button" onClick={() => window.print()} style={{ flex: 1 }}>
                 Print
               </button>
