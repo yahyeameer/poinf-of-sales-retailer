@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { LocationSwitcher } from "@/components/LocationSwitcher";
+import { SidebarNav } from "@/components/SidebarNav";
 import { getTenantContext } from "@/lib/tenant";
 
 /**
@@ -17,50 +16,78 @@ export async function Shell({
   children: React.ReactNode;
 }) {
   const ctx = await getTenantContext();
-  const isOwner = ctx?.role === "owner";
-  const isManager = isOwner || ctx?.role === "manager";
+  const isManager = ctx?.role === "owner" || ctx?.role === "manager";
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">AI POS</div>
-        <div className="shop-name">{shopName}</div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* Fixed rather than sticky: the till's cart scrolls independently and a
+          sticky sidebar would drift with it. Hidden below lg, where the nav
+          moves to the scrollable strip underneath. */}
+      <aside
+        className="hidden lg:flex lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex-col
+                   border-r border-slate-200 bg-white
+                   dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div className="px-5 py-5 border-b border-slate-100 dark:border-slate-800">
+          <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            AI POS
+          </div>
+          <div className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+            {shopName}
+          </div>
+        </div>
 
         {ctx && (
-          <LocationSwitcher
-            locations={ctx.locations}
-            activeId={ctx.locationId}
-            pinned={ctx.pinnedToLocation}
-          />
+          <div className="px-3 pt-3">
+            <LocationSwitcher
+              locations={ctx.locations}
+              activeId={ctx.locationId}
+              pinned={ctx.pinnedToLocation}
+            />
+          </div>
         )}
 
-        <nav>
-          <div className="nav-group-title">SELL</div>
-          <Link href="/till" className="nav-primary">Till</Link>
+        <div className="flex-1 overflow-y-auto px-3 py-4">
+          <SidebarNav isManager={isManager} />
+        </div>
 
-          <div className="nav-group-title" style={{ marginTop: "14px" }}>MAIN</div>
-          <Link href="/">Dashboard</Link>
-          <Link href="/catalog">Catalog</Link>
-          <Link href="/stock">Stock Ledger</Link>
-          <Link href="/analytics">Analytics</Link>
-
-          <div className="nav-group-title" style={{ marginTop: "14px" }}>WAREHOUSE</div>
-          <Link href="/locations">Locations</Link>
-          {isManager && <Link href="/transfers">Transfers</Link>}
-          {isManager && <Link href="/stocktake">Stocktake</Link>}
-
-          <div className="nav-group-title" style={{ marginTop: "14px" }}>TOOLS</div>
-          <Link href="/inventory/import">CSV Import</Link>
-          <Link href="/barcode">Barcode Studio</Link>
-          <Link href="/receipts">Receipts</Link>
-          <Link href="/reports/weekly">Weekly Report</Link>
-
-          <div className="nav-group-title" style={{ marginTop: "14px" }}>ADMIN</div>
-          <Link href="/staff">Staff</Link>
-          <Link href="/settings">Settings</Link>
-        </nav>
+        {ctx && (
+          <div className="border-t border-slate-100 px-5 py-3 dark:border-slate-800">
+            <div className="truncate text-xs font-medium text-slate-700 dark:text-slate-300">
+              {ctx.userName}
+            </div>
+            <div className="text-[11px] capitalize text-slate-400">{ctx.role}</div>
+          </div>
+        )}
       </aside>
-      <main className="main">{children}</main>
+
+      {/* Below lg the same nav becomes a horizontally scrollable strip. A drawer
+          would be tidier but needs state and a trap; on a shop phone the till is
+          the only screen that matters and this keeps it one tap away. */}
+      <div className="lg:hidden sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-slate-900 dark:text-slate-50">AI POS</div>
+            <div className="truncate text-xs text-slate-500">{shopName}</div>
+          </div>
+          {ctx && (
+            <div className="shrink-0">
+              <LocationSwitcher
+                locations={ctx.locations}
+                activeId={ctx.locationId}
+                pinned={ctx.pinnedToLocation}
+              />
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto px-2 pb-2 [&_nav]:flex-row [&_nav]:gap-3 [&_nav>div]:flex-row [&_nav>div]:items-center [&_nav>div>div]:hidden">
+          <SidebarNav isManager={isManager} />
+        </div>
+      </div>
+
+      <main className="lg:pl-64">
+        <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</div>
+      </main>
     </div>
   );
 }
