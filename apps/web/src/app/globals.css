@@ -1,3 +1,15 @@
+/* Tailwind v4 needs this import in the CSS entry point — the PostCSS plugin
+   alone generates nothing without it. It was missing, so every utility class
+   across the shadcn components resolved to no rule at all: `max-w-lg` computed
+   to `none`, dialogs rendered full-width and unpositioned, and the whole
+   redesign was invisible. */
+@import "tailwindcss";
+
+/* Preflight would otherwise strip the borders off the hand-written tables and
+   panels on the pages that predate Tailwind here. Everything below styles
+   through these variables, and the two systems sit side by side until the
+   remaining pages are converted. */
+
 :root {
   --bg: #fbfbfa;
   --surface: #ffffff;

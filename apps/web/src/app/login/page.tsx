@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+// Read at module scope so Next inlines it at build time: this has to agree with
+// what the middleware decides on the server, or the button and the gate disagree.
+const DEMO_MODE_ENABLED = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -96,29 +100,38 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Direct Demo Mode Button */}
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    No Database Required
-                  </span>
-                  <Badge variant="outline" className="text-[10px] bg-white border-emerald-300 text-emerald-700">Instant Preview</Badge>
+              {/* Only rendered when the deployment actually allows demo mode.
+                  Showing it otherwise would be a button that bounces straight
+                  back to this page — the middleware ignores the demo flag
+                  unless NEXT_PUBLIC_DEMO_MODE is on, so a visitor cannot switch
+                  the auth gate off just by asking. The cookie is set server-side
+                  with HttpOnly; setting it here from script could not be. */}
+              {DEMO_MODE_ENABLED && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      No Database Required
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-white border-emerald-300 text-emerald-700">Instant Preview</Badge>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      router.push("/?demo=true" as any);
+                      router.refresh();
+                    }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 h-10 shadow-md shadow-emerald-600/20"
+                  >
+                    <Play className="h-4 w-4 fill-white" />
+                    <span>Enter Demo POS Terminal</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                    Sample figures only — nothing you see is a real shop&apos;s takings.
+                  </p>
                 </div>
-                <Button 
-                  type="button" 
-                  onClick={() => {
-                    document.cookie = "demo_mode=true; path=/";
-                    router.push("/?demo=true" as any);
-                    router.refresh();
-                  }}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 h-10 shadow-md shadow-emerald-600/20"
-                >
-                  <Play className="h-4 w-4 fill-white" />
-                  <span>Enter Demo POS Terminal</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
+              )}
 
               <div className="relative flex py-1 items-center">
                 <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
