@@ -3,9 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@ai-pos/shared";
-
 import { createProduct } from "@/app/actions";
 import { DemoBanner } from "@/components/DemoBanner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Plus, Search, Package, Barcode, AlertCircle, X, CheckCircle2 } from "lucide-react";
 
 export interface Product {
   id: string;
@@ -75,187 +79,226 @@ export function CatalogClient({
         setBarcode("");
         setPrice("");
         setShowAddModal(false);
-        // The list is server-rendered; pull it again so the new row is the one
-        // the database actually holds, not an optimistic guess at it.
         router.refresh();
       }
     });
   }
 
   return (
-    <div>
+    <div className="max-w-7xl mx-auto space-y-6 font-sans">
       {demoReason && <DemoBanner reason={demoReason} />}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1>Product Catalog</h1>
-          <p className="subtitle">Manage products, prices, barcodes, and inventory thresholds.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
+            <Package className="h-6 w-6 text-emerald-600" />
+            Product Catalog
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Manage product prices, barcodes, stock levels, and inventory reorder points.
+          </p>
         </div>
         {canEdit && (
-          <button
-            type="button"
+          <Button
             onClick={() => { setNotice(null); setShowAddModal(true); }}
-            style={{ width: "auto", marginTop: 0 }}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20"
           >
-            + Add Product
-          </button>
+            <Plus className="h-4 w-4" />
+            <span>Add Product</span>
+          </Button>
         )}
       </div>
 
+      {/* Notice Banner */}
       {notice && !showAddModal && (
-        <div className={notice.ok ? "notice success" : "notice"}>{notice.message}</div>
+        <div className={`p-4 rounded-xl text-sm flex items-center gap-3 ${notice.ok ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
+          {notice.ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <AlertCircle className="h-5 w-5 text-rose-600" />}
+          <span>{notice.message}</span>
+        </div>
       )}
 
-      <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
-        <input
-          type="text"
-          placeholder="Search by product name or barcode..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: "320px" }}
-        />
-        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+      {/* Controls Bar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Input
+            type="text"
+            placeholder="Search by product name or barcode..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {(["all", "active", "low", "archived"] as const).map((f) => (
             <button
               key={f}
               type="button"
-              className="chip-button"
-              aria-pressed={filter === f}
-              style={{
-                borderColor: filter === f ? "var(--accent)" : "var(--border)",
-                color: filter === f ? "var(--accent)" : "var(--muted)",
-                fontWeight: filter === f ? "600" : "400",
-              }}
               onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
+                filter === f
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+              }`}
             >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {f}
             </button>
           ))}
         </div>
       </div>
 
-      <section className="panel">
-        <header>
-          <span>
-            {filter.toUpperCase()} Products ({filteredProducts.length})
-          </span>
-        </header>
+      {/* Main Catalog Card & Table */}
+      <Card>
+        <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold capitalize">
+              {filter} Products
+            </CardTitle>
+            <Badge variant="outline" className="font-mono">
+              {filteredProducts.length} items
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {filteredProducts.length === 0 ? (
+            <div className="p-12 text-center text-slate-500">
+              <Package className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+              <p className="font-medium text-sm">No matching products found.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                  <tr>
+                    <th className="px-5 py-3">Product Name</th>
+                    <th className="px-5 py-3">Barcode</th>
+                    <th className="px-5 py-3 text-right">Selling Price</th>
+                    <th className="px-5 py-3 text-right">Stock On Hand</th>
+                    <th className="px-5 py-3 text-right">Reorder Point</th>
+                    <th className="px-5 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredProducts.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-slate-100">
+                        {p.name}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-500 font-mono text-xs">
+                        {p.barcode ? (
+                          <span className="flex items-center gap-1.5">
+                            <Barcode className="h-3.5 w-3.5 text-slate-400" />
+                            {p.barcode}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatMoney(p.price_cents, currency)}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-medium">
+                        {Number(p.stock_on_hand)}
+                      </td>
+                      <td className="px-5 py-3.5 text-right text-slate-500">
+                        {Number(p.reorder_point)}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {!p.is_active ? (
+                          <Badge variant="destructive">Archived</Badge>
+                        ) : Number(p.stock_on_hand) <= Number(p.reorder_point) ? (
+                          <Badge variant="warning">Low Stock</Badge>
+                        ) : (
+                          <Badge variant="default">Active</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {filteredProducts.length === 0 ? (
-          <p className="empty">No matching products found.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Product Name</th>
-                <th>Barcode</th>
-                <th className="num">Price</th>
-                <th className="num">Stock on Hand</th>
-                <th className="num">Reorder Point</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ fontWeight: 550 }}>{p.name}</td>
-                  <td>
-                    <code>{p.barcode ?? "—"}</code>
-                  </td>
-                  <td className="num">{formatMoney(p.price_cents, currency)}</td>
-                  <td className="num">{Number(p.stock_on_hand)}</td>
-                  <td className="num">{Number(p.reorder_point)}</td>
-                  <td>
-                    {!p.is_active ? (
-                      <span className="pill danger">Archived</span>
-                    ) : Number(p.stock_on_hand) <= Number(p.reorder_point) ? (
-                      <span className="pill warn">Low Stock</span>
-                    ) : (
-                      <span className="pill">Active</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
+      {/* Add Product Modal */}
       {showAddModal && (
-        <div className="modal-backdrop">
-          <form onSubmit={handleAddProduct} className="modal">
-            <h2 style={{ fontSize: "18px", marginTop: 0 }}>Add New Product</h2>
-
-            <label htmlFor="p-name">Product Name</label>
-            <input
-              id="p-name"
-              type="text"
-              required
-              placeholder="e.g. Fresh Milk 1L"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-
-            <label htmlFor="p-barcode">Barcode (Optional)</label>
-            <input
-              id="p-barcode"
-              type="text"
-              placeholder="e.g. 600123456789"
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-            />
-
-            <label htmlFor="p-price">Selling Price ({currency})</label>
-            <input
-              id="p-price"
-              type="number"
-              step="0.01"
-              min="0"
-              required
-              placeholder="2.50"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              <div>
-                <label htmlFor="p-stock">Opening Stock</label>
-                <input
-                  id="p-stock"
-                  type="number"
-                  min="0"
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="p-reorder">Reorder Point</label>
-                <input
-                  id="p-reorder"
-                  type="number"
-                  min="0"
-                  value={reorder}
-                  onChange={(e) => setReorder(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {notice && !notice.ok && <div className="notice">{notice.message}</div>}
-
-            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
-              <button type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Save Product"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                disabled={pending}
-                style={{ background: "transparent", color: "var(--muted)", border: "1px solid var(--border)" }}
-              >
-                Cancel
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Add New Product</h2>
+              <button type="button" onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
               </button>
             </div>
-          </form>
+
+            <form onSubmit={handleAddProduct} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Product Name</label>
+                <Input
+                  required
+                  placeholder="e.g. Fresh Milk 1L"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Barcode (Optional)</label>
+                <Input
+                  placeholder="e.g. 600123456789"
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Selling Price ({currency})</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  placeholder="2.50"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Opening Stock</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Reorder Point</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={reorder}
+                    onChange={(e) => setReorder(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button type="submit" disabled={pending} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                  {pending ? "Saving..." : "Save Product"}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={pending}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

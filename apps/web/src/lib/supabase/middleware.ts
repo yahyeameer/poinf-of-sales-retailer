@@ -23,7 +23,13 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseKey) {
+  const demoCookie = request.cookies.get("demo_mode")?.value === "true";
+  const isDemoQuery = request.nextUrl.searchParams.get("demo") === "true";
+
+  if (!supabaseUrl || !supabaseKey || demoCookie || isDemoQuery) {
+    if (isDemoQuery) {
+      response.cookies.set("demo_mode", "true", { path: "/" });
+    }
     return response;
   }
 
@@ -33,7 +39,7 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: any[]) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }

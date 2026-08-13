@@ -3,6 +3,17 @@ import { Shell } from "@/components/Shell";
 import { AiAssistant } from "@/components/AiAssistant";
 import { DemoBanner } from "@/components/DemoBanner";
 import { createClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  TrendingUp, 
+  ShoppingCart, 
+  DollarSign, 
+  CreditCard, 
+  AlertTriangle, 
+  ArrowUpRight,
+  TrendingDown
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +36,6 @@ export default async function DashboardPage() {
   let currency = "USD";
   let oversold = 0;
 
-  // Null means the figures below are the shop's own. Anything else is the
-  // reason they aren't, and gets shown at the top of the page — invented
-  // revenue that looks identical to real revenue is the one failure mode a
-  // till cannot have.
   let demoReason: string | null = null;
   let rows: any[] = [
     { day: isoDay(0), transactions: 14, revenue_cents: 18500, cash_cents: 12000, mobile_money_cents: 6500, card_cents: 0 },
@@ -102,8 +109,6 @@ export default async function DashboardPage() {
       if (dbTopMovers) topMovers = dbTopMovers;
       if (dbOversold !== null) oversold = dbOversold as any;
 
-      // An empty result is a legitimate answer for a brand-new shop; showing
-      // three days of invented takings instead is not.
       if (!daily || daily.length === 0) {
         rows = [];
         lowStock = dbLowStock ?? [];
@@ -140,8 +145,8 @@ export default async function DashboardPage() {
         acc[key].revenue += Number(row.revenue_cents ?? 0);
         return acc;
       },
-      {},
-    ),
+      {}
+    )
   )
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
@@ -152,154 +157,193 @@ export default async function DashboardPage() {
       mobile: acc.mobile + Number(r.mobile_money_cents ?? 0),
       card: acc.card + Number(r.card_cents ?? 0),
     }),
-    { cash: 0, mobile: 0, card: 0 },
+    { cash: 0, mobile: 0, card: 0 }
   );
 
   return (
     <Shell shopName={shopName}>
-      <h1>Today</h1>
-      <p className="subtitle">
-        {userName ? `${userName} · ` : ""}
-        {userRole}
-      </p>
-
-      {demoReason && <DemoBanner reason={demoReason} />}
-
-      <AiAssistant />
-
-      {oversold > 0 && (
-        <div className="notice">
-          <strong>{oversold} sale(s) went through on stock you didn&apos;t have.</strong> Two
-          devices sold the last unit at once. The sales are recorded — the stock counts need
-          correcting.
-        </div>
-      )}
-
-      <div className="tiles">
-        <div className="tile">
-          <div className="label">Revenue today</div>
-          <div className="value">{formatMoney(Number(today?.revenue_cents ?? 0), currency)}</div>
-          <div className="delta">{today?.transactions ?? 0} transactions</div>
-        </div>
-        <div className="tile">
-          <div className="label">Revenue this week</div>
-          <div className="value">{formatMoney(weekRevenue, currency)}</div>
-          <div className="delta">{percentChange(weekRevenue, prevRevenue)}</div>
-        </div>
-        <div className="tile">
-          <div className="label">Transactions this week</div>
-          <div className="value">{weekTransactions}</div>
-          <div className="delta">
-            {weekTransactions > 0
-              ? `${formatMoney(Math.round(weekRevenue / weekTransactions), currency)} average`
-              : "—"}
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+              Retail Dashboard
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Welcome back, <span className="font-semibold text-slate-700 dark:text-slate-300">{userName}</span> ({userRole})
+            </p>
           </div>
+          <Badge variant="outline" className="w-fit text-xs px-3 py-1 font-mono">
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+          </Badge>
         </div>
-        <div className="tile">
-          <div className="label">Cash vs mobile money</div>
-          <div className="value">
-            {weekRevenue > 0 ? `${Math.round((cashSplit.cash / weekRevenue) * 100)}%` : "—"}
+
+        {demoReason && <DemoBanner reason={demoReason} />}
+
+        <AiAssistant />
+
+        {oversold > 0 && (
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-900 text-rose-800 dark:text-rose-300 flex items-start gap-3 text-sm">
+            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold">{oversold} oversold sale(s) recorded!</span> Multiple devices checked out units exceeding current physical stock. Please inspect stock counts.
+            </div>
           </div>
-          <div className="delta">
-            {formatMoney(cashSplit.cash, currency)} cash ·{" "}
-            {formatMoney(cashSplit.mobile, currency)} mobile
-          </div>
+        )}
+
+        {/* Telemetry Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Tile 1 */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Revenue Today
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <DollarSign className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                {formatMoney(Number(today?.revenue_cents ?? 0), currency)}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{today?.transactions ?? 0}</span> transactions completed
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Tile 2 */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Revenue This Week
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                {formatMoney(weekRevenue, currency)}
+              </div>
+              <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                {percentChange(weekRevenue, prevRevenue)}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tile 3 */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Weekly Orders
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                <ShoppingCart className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                {weekTransactions}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                {weekTransactions > 0
+                  ? `${formatMoney(Math.round(weekRevenue / weekTransactions), currency)} avg ticket`
+                  : "No sales recorded"}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Tile 4 */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Cash vs Mobile
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <CreditCard className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                {weekRevenue > 0 ? `${Math.round((cashSplit.cash / weekRevenue) * 100)}% Cash` : "—"}
+              </div>
+              <p className="text-xs text-slate-500 mt-1 truncate">
+                {formatMoney(cashSplit.cash, currency)} cash · {formatMoney(cashSplit.mobile, currency)} mobile
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Panels Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Panel 1: Top Movers */}
+          <Card>
+            <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Top Movers</CardTitle>
+                <Badge variant="secondary">Last 7 days</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {movers.length === 0 ? (
+                <p className="p-6 text-sm text-slate-500 text-center">No sales in the last week.</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {movers.map((m, i) => (
+                    <div key={m.name} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 text-xs font-bold text-slate-400 text-center">#{i + 1}</span>
+                        <div>
+                          <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">{m.name}</div>
+                          <div className="text-xs text-slate-500">{m.units} units sold</div>
+                        </div>
+                      </div>
+                      <div className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">
+                        {formatMoney(m.revenue, currency)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Panel 2: Low Stock Alerts */}
+          <Card>
+            <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <CardTitle className="text-base font-semibold">Running Low</CardTitle>
+                </div>
+                <Badge variant="warning">At / below reorder point</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {lowStock.length === 0 ? (
+                <p className="p-6 text-sm text-slate-500 text-center">Everything is above its reorder point.</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {lowStock.map((item) => (
+                    <div key={item.product_id || item.name} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <div>
+                        <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">{item.name}</div>
+                        <div className="text-xs text-slate-500">Reorder threshold: {item.reorder_point}</div>
+                      </div>
+                      <Badge variant={item.stock_on_hand <= 0 ? "destructive" : "warning"}>
+                        {item.stock_on_hand <= 0 ? "Out of Stock" : `${item.stock_on_hand} left`}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      <section className="panel">
-        <header>
-          Top movers <span className="hint">last 7 days</span>
-        </header>
-        {movers.length === 0 ? (
-          <p className="empty">No sales in the last week.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th className="num">Units</th>
-                <th className="num">Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {movers.map((m) => (
-                <tr key={m.name}>
-                  <td>{m.name}</td>
-                  <td className="num">{m.units}</td>
-                  <td className="num">{formatMoney(m.revenue, currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section className="panel">
-        <header>
-          Running low <span className="hint">at or below reorder point</span>
-        </header>
-        {lowStock.length === 0 ? (
-          <p className="empty">Everything is above its reorder point.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th className="num">On hand</th>
-                <th className="num">Reorder at</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {lowStock.map((p) => (
-                <tr key={p.product_id as string}>
-                  <td>{p.name}</td>
-                  <td className="num">{Number(p.stock_on_hand)}</td>
-                  <td className="num">{Number(p.reorder_point)}</td>
-                  <td className="num">
-                    {Number(p.stock_on_hand) <= 0 ? (
-                      <span className="pill danger">out</span>
-                    ) : (
-                      <span className="pill warn">low</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section className="panel">
-        <header>
-          Last 14 days <span className="hint">by day the sale happened</span>
-        </header>
-        {rows.length === 0 ? (
-          <p className="empty">Nothing recorded yet.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th className="num">Transactions</th>
-                <th className="num">Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.day as string}>
-                  <td>{r.day}</td>
-                  <td className="num">{r.transactions}</td>
-                  <td className="num">
-                    {formatMoney(Number(r.revenue_cents ?? 0), currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
     </Shell>
   );
 }

@@ -2,8 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-
 import { importProducts } from "@/app/actions";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { FileSpreadsheet, CheckCircle2, AlertCircle, Upload, ArrowRight, Table as TableIcon } from "lucide-react";
 
 interface ParsedRow {
   name: string;
@@ -62,8 +65,6 @@ export function ImportClient({ currency }: { currency: string }) {
 
     setNotice(null);
     startTransition(async () => {
-      // Previously this fired an alert claiming success and wrote nothing at
-      // all. Now the message reports what the database actually accepted.
       const result = await importProducts(
         valid.map((r) => ({
           name: r.name,
@@ -84,93 +85,102 @@ export function ImportClient({ currency }: { currency: string }) {
   const validCount = parsedRows.filter((r) => r.valid).length;
 
   return (
-    <div>
-      <h1>CSV Catalog Bulk Import</h1>
-      <p className="subtitle">Import product inventory in bulk from a standard CSV spreadsheet.</p>
+    <div className="max-w-7xl mx-auto space-y-6 font-sans">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
+          <FileSpreadsheet className="h-6 w-6 text-emerald-600" />
+          CSV Catalog Bulk Import
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Import product inventory in bulk from standard CSV spreadsheet files.
+        </p>
+      </div>
 
       {notice && (
-        <div className={notice.ok ? "notice success" : "notice"}>{notice.message}</div>
+        <div className={`p-4 rounded-xl text-sm flex items-center gap-3 ${notice.ok ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
+          {notice.ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <AlertCircle className="h-5 w-5 text-rose-600" />}
+          <span>{notice.message}</span>
+        </div>
       )}
 
-      <section className="panel" style={{ padding: "20px" }}>
-        <h2 style={{ fontSize: "16px", marginTop: 0 }}>Step 1 — Paste your CSV</h2>
-        <p className="hint" style={{ marginTop: 0 }}>
-          Columns: name, barcode, price, quantity. The first row is treated as a header.
-        </p>
-        <textarea
-          rows={6}
-          value={csvText}
-          onChange={(e) => setCsvText(e.target.value)}
-          aria-label="CSV data"
-          style={{
-            width: "100%",
-            fontFamily: "var(--mono, monospace)",
-            fontSize: "13px",
-            padding: "10px",
-            borderRadius: "7px",
-            border: "1px solid var(--border)",
-            background: "var(--bg)",
-            color: "var(--text)",
-          }}
-        />
+      {/* Step 1 Card */}
+      <Card>
+        <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Step 1 — Paste your CSV Data</CardTitle>
+            <Badge variant="outline" className="font-mono text-xs">Columns: Name, Barcode, Price, Quantity</Badge>
+          </div>
+          <CardDescription>First line is treated as CSV header</CardDescription>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <textarea
+            rows={6}
+            value={csvText}
+            onChange={(e) => setCsvText(e.target.value)}
+            className="w-full font-mono text-xs p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+          <Button onClick={parseCSV} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2">
+            <TableIcon className="h-4 w-4" />
+            <span>Validate & Parse CSV</span>
+          </Button>
+        </CardContent>
+      </Card>
 
-        <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
-          <button type="button" onClick={parseCSV} style={{ width: "auto", marginTop: 0 }}>
-            Check rows
-          </button>
-          <button
-            type="button"
-            onClick={() => { setCsvText(SAMPLE_CSV); setParsedRows([]); setNotice(null); setDone(false); }}
-            style={{ width: "auto", marginTop: 0, background: "transparent", border: "1px solid var(--border)", color: "var(--muted)" }}
-          >
-            Reset to sample
-          </button>
-        </div>
-      </section>
-
+      {/* Step 2 Card */}
       {parsedRows.length > 0 && (
-        <section className="panel">
-          <header>
-            <span>Step 2 — Review ({parsedRows.length} rows, {validCount} ready)</span>
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={pending || done || validCount === 0}
-              style={{ width: "auto", marginTop: 0, padding: "4px 14px" }}
-            >
-              {done ? "Imported ✓" : pending ? "Importing…" : `Import ${validCount} products`}
-            </button>
-          </header>
+        <Card className="animate-in fade-in slide-in-from-bottom-2">
+          <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">Step 2 — Preview Parsed Rows</CardTitle>
+              <Badge variant={validCount > 0 ? "default" : "destructive"}>
+                {validCount} valid / {parsedRows.length} total
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                  <tr>
+                    <th className="px-5 py-3">Product Name</th>
+                    <th className="px-5 py-3">Barcode</th>
+                    <th className="px-5 py-3 text-right">Price ({currency})</th>
+                    <th className="px-5 py-3 text-right">Quantity</th>
+                    <th className="px-5 py-3">Validation Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {parsedRows.map((r, i) => (
+                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-5 py-3 font-semibold text-slate-900 dark:text-slate-100">{r.name || "—"}</td>
+                      <td className="px-5 py-3 font-mono text-xs text-slate-500">{r.barcode || "—"}</td>
+                      <td className="px-5 py-3 text-right font-medium">{r.price || "—"}</td>
+                      <td className="px-5 py-3 text-right font-medium">{r.stock || "—"}</td>
+                      <td className="px-5 py-3">
+                        {r.valid ? (
+                          <Badge variant="default">Valid</Badge>
+                        ) : (
+                          <Badge variant="destructive">{r.error || "Invalid"}</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Product Name</th>
-                <th>Barcode</th>
-                <th className="num">Price ({currency})</th>
-                <th className="num">Quantity</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {parsedRows.map((row, idx) => (
-                <tr key={idx}>
-                  <td style={{ fontWeight: 550 }}>{row.name || "—"}</td>
-                  <td><code>{row.barcode || "—"}</code></td>
-                  <td className="num">{row.price}</td>
-                  <td className="num">{row.stock}</td>
-                  <td>
-                    {row.valid ? (
-                      <span className="pill" style={{ color: "var(--accent)" }}>Ready</span>
-                    ) : (
-                      <span className="pill danger">{row.error}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+            <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <Button
+                onClick={handleImport}
+                disabled={validCount === 0 || pending || done}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 shadow-md shadow-emerald-600/20"
+              >
+                <Upload className="h-4 w-4" />
+                <span>{pending ? "Importing..." : `Import ${validCount} Products`}</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

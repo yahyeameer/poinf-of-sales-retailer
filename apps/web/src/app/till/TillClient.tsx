@@ -21,6 +21,28 @@ import {
   type TenderInput,
 } from "./actions";
 
+import {
+  Search,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  Barcode,
+  Clock,
+  CheckCircle2,
+  DollarSign,
+  CreditCard,
+  Smartphone,
+  Printer,
+  X,
+  Sparkles,
+  AlertCircle
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 export interface TillProduct {
   id: string;
   name: string;

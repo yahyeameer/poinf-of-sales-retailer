@@ -9,7 +9,9 @@
     "newArchEnabled": true,
     "android": {
       "package": "shop.aipos.app",
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -19,7 +21,8 @@
         {
           "cameraPermission": "The app uses the camera to scan barcodes and recognise products at checkout."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

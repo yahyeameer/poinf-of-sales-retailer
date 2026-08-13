@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles, Send, Loader2, Bot } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function AiAssistant() {
   const [query, setQuery] = useState("");
@@ -42,55 +47,78 @@ export function AiAssistant() {
   }
 
   return (
-    <div className="ai-assistant-card">
-      <div className="ai-header">
-        <div className="ai-title">
-          <span className="ai-icon">✨</span>
-          <span>AI Shop Assistant</span>
+    <Card className="border-emerald-200 dark:border-emerald-900 bg-gradient-to-br from-emerald-50/50 via-white to-slate-50 dark:from-emerald-950/20 dark:via-slate-900 dark:to-slate-950 shadow-md">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+              AI Copilot Assistant
+            </CardTitle>
+          </div>
+          <Badge variant="default" className="text-[10px]">
+            AI Powered
+          </Badge>
         </div>
-        <span className="pill">Powered by LLM Prompts</span>
-      </div>
+      </CardHeader>
 
-      <div className="ai-input-group">
-        <input
-          type="text"
-          placeholder="Ask anything about your stock, revenue, or sales trends..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-        />
-        <button
-          type="button"
-          onClick={() => handleSearch()}
-          disabled={loading || !query.trim()}
-          style={{ width: "auto", marginTop: 0 }}
-        >
-          {loading ? "Analyzing..." : "Ask AI"}
-        </button>
-      </div>
-
-      <div className="quick-prompts">
-        {quickPrompts.map((p) => (
-          <button
-            key={p}
-            type="button"
-            className="chip-button"
-            onClick={() => {
-              setQuery(p);
-              handleSearch(p);
-            }}
+      <CardContent className="space-y-4">
+        {/* Input Bar */}
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            placeholder="Ask anything about your stock, revenue, or sales trends..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            className="flex-1 border-slate-200 focus-visible:ring-emerald-600"
+          />
+          <Button
+            onClick={() => handleSearch()}
+            disabled={loading || !query.trim()}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
           >
-            {p}
-          </button>
-        ))}
-      </div>
-
-      {answer && (
-        <div className="ai-response">
-          <strong>AI Insights:</strong>
-          <p>{answer}</p>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span>{loading ? "Analyzing" : "Ask"}</span>
+          </Button>
         </div>
-      )}
-    </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="flex flex-wrap gap-2">
+          {quickPrompts.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => {
+                setQuery(p);
+                handleSearch(p);
+              }}
+              className="text-xs px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-950/50 text-slate-600 dark:text-slate-400 font-medium transition-all"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        {/* Response Box */}
+        {answer && (
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1.5 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <Bot className="h-4 w-4" />
+              <span>AI Insights</span>
+            </div>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              {answer}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

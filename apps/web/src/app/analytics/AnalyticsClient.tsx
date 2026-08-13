@@ -1,6 +1,9 @@
 "use client";
 
 import { formatMoney } from "@ai-pos/shared";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { BarChart3, TrendingUp, ShoppingCart, DollarSign, CreditCard, Smartphone, Calendar } from "lucide-react";
 
 interface DailySale {
   day: string;
@@ -29,109 +32,180 @@ export function AnalyticsClient({
   const maxRev = Math.max(...dailySales.map((r) => Number(r.revenue_cents || 0)), 1);
 
   return (
-    <div>
-      <h1>Sales & Financial Analytics</h1>
-      <p className="subtitle">14-Day revenue trends, payment breakdowns, and volume metrics.</p>
-
-      <div className="tiles">
-        <div className="tile">
-          <div className="label">14-Day Total Revenue</div>
-          <div className="value">{formatMoney(totalRev, currency)}</div>
-          <div className="delta">Across {dailySales.length} calendar days</div>
-        </div>
-        <div className="tile">
-          <div className="label">Total Transactions</div>
-          <div className="value">{totalTx}</div>
-          <div className="delta">Completed sales</div>
-        </div>
-        <div className="tile">
-          <div className="label">Average Basket Size</div>
-          <div className="value">{formatMoney(avgBasket, currency)}</div>
-          <div className="delta">Per customer transaction</div>
-        </div>
-        <div className="tile">
-          <div className="label">Cash Ratio</div>
-          <div className="value">
-            {totalRev > 0 ? `${Math.round((cashTotal / totalRev) * 100)}%` : "0%"}
-          </div>
-          <div className="delta">{formatMoney(cashTotal, currency)} total cash</div>
-        </div>
+    <div className="max-w-7xl mx-auto space-y-6 font-sans">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
+          <BarChart3 className="h-6 w-6 text-emerald-600" />
+          Sales & Financial Analytics
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          14-day revenue trends, payment channel breakdown, and transaction volumes.
+        </p>
       </div>
 
-      <section className="panel" style={{ padding: "20px" }}>
-        <header style={{ marginBottom: "16px", padding: 0, border: "none" }}>
-          <span>14-Day Revenue Sparkline Bar Chart</span>
-        </header>
+      {/* Telemetry Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              14-Day Total Revenue
+            </CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <DollarSign className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              {formatMoney(totalRev, currency)}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Across {dailySales.length} calendar days
+            </p>
+          </CardContent>
+        </Card>
 
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", height: "180px", paddingTop: "20px" }}>
-          {dailySales.map((d) => {
-            const heightPct = Math.round((Number(d.revenue_cents || 0) / maxRev) * 100);
-            return (
-              <div
-                key={d.day}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  height: "100%",
-                  justifyContent: "flex-end",
-                }}
-              >
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total Transactions
+            </CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <ShoppingCart className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              {totalTx}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">Completed sales orders</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Average Basket Size
+            </CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              {formatMoney(avgBasket, currency)}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">Per transaction ticket</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Cash Ratio
+            </CardTitle>
+            <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <CreditCard className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              {totalRev > 0 ? `${Math.round((cashTotal / totalRev) * 100)}%` : "0%"}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              {formatMoney(cashTotal, currency)} cash sales
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bar Chart Section */}
+      <Card>
+        <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-emerald-600" />
+              <CardTitle className="text-base font-semibold">14-Day Revenue Sparkline Bar Chart</CardTitle>
+            </div>
+            <Badge variant="outline" className="font-mono text-xs">Daily Totals</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="flex items-end gap-2.5 h-48 pt-4">
+            {dailySales.map((d) => {
+              const heightPct = Math.round((Number(d.revenue_cents || 0) / maxRev) * 100);
+              return (
                 <div
-                  style={{
-                    width: "100%",
-                    maxHeight: "140px",
-                    height: `${Math.max(heightPct, 8)}%`,
-                    background: "var(--accent)",
-                    borderRadius: "4px 4px 0 0",
-                    transition: "height 0.3s ease",
-                  }}
-                  title={`${d.day}: ${formatMoney(d.revenue_cents, currency)}`}
-                />
-                <span style={{ fontSize: "11px", color: "var(--muted)", marginTop: "6px", whiteSpace: "nowrap" }}>
-                  {d.day.slice(5)}
+                  key={d.day}
+                  className="flex-1 flex flex-col items-center h-full justify-end group relative"
+                >
+                  <div
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-t-md transition-all duration-300 shadow-sm"
+                    style={{ height: `${Math.max(heightPct, 8)}%` }}
+                    title={`${d.day}: ${formatMoney(d.revenue_cents, currency)}`}
+                  />
+                  <span className="text-[10px] font-mono text-slate-400 mt-2 truncate w-full text-center">
+                    {d.day.slice(5)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payment Distribution Section */}
+      <Card>
+        <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+          <CardTitle className="text-base font-semibold">Payment Channel Distribution</CardTitle>
+          <CardDescription>Breakdown by Tender Type across all registers</CardDescription>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Cash */}
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                  Cash Payments
                 </span>
+                <Badge variant="default">{totalRev > 0 ? Math.round((cashTotal / totalRev) * 100) : 0}%</Badge>
               </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="panel" style={{ padding: "20px" }}>
-        <h2 style={{ fontSize: "16px", marginTop: 0 }}>Payment Method Distribution</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginTop: "12px" }}>
-          <div style={{ padding: "14px", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <div style={{ fontSize: "12px", color: "var(--muted)" }}>💵 Cash Payments</div>
-            <div style={{ fontSize: "20px", fontWeight: "600", marginTop: "4px" }}>
-              {formatMoney(cashTotal, currency)}
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {formatMoney(cashTotal, currency)}
+              </div>
             </div>
-            <span className="pill" style={{ marginTop: "6px" }}>
-              {totalRev > 0 ? Math.round((cashTotal / totalRev) * 100) : 0}% of revenue
-            </span>
-          </div>
 
-          <div style={{ padding: "14px", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <div style={{ fontSize: "12px", color: "var(--muted)" }}>📱 Mobile Money</div>
-            <div style={{ fontSize: "20px", fontWeight: "600", marginTop: "4px" }}>
-              {formatMoney(mobileTotal, currency)}
+            {/* Mobile Money */}
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                  <Smartphone className="h-4 w-4 text-violet-600" />
+                  Mobile Money / M-Pesa
+                </span>
+                <Badge variant="secondary">{totalRev > 0 ? Math.round((mobileTotal / totalRev) * 100) : 0}%</Badge>
+              </div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {formatMoney(mobileTotal, currency)}
+              </div>
             </div>
-            <span className="pill" style={{ marginTop: "6px" }}>
-              {totalRev > 0 ? Math.round((mobileTotal / totalRev) * 100) : 0}% of revenue
-            </span>
-          </div>
 
-          <div style={{ padding: "14px", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <div style={{ fontSize: "12px", color: "var(--muted)" }}>💳 Card Payments</div>
-            <div style={{ fontSize: "20px", fontWeight: "600", marginTop: "4px" }}>
-              {formatMoney(cardTotal, currency)}
+            {/* Card */}
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                  <CreditCard className="h-4 w-4 text-blue-600" />
+                  Card Payments
+                </span>
+                <Badge variant="outline">{totalRev > 0 ? Math.round((cardTotal / totalRev) * 100) : 0}%</Badge>
+              </div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {formatMoney(cardTotal, currency)}
+              </div>
             </div>
-            <span className="pill" style={{ marginTop: "6px" }}>
-              {totalRev > 0 ? Math.round((cardTotal / totalRev) * 100) : 0}% of revenue
-            </span>
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     </div>
   );
 }
