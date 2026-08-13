@@ -23,14 +23,37 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const demoCookie = request.cookies.get("demo_mode")?.value === "true";
-  const isDemoQuery = request.nextUrl.searchParams.get("demo") === "true";
+  // Demo mode has to be switched on by whoever deploys the app, not by whoever
+  // visits it. Previously `?demo=true` on any URL skipped the auth check and
+  // set a permanent cookie, so one link turned the gate off for good — the same
+  // shape as the PUBLIC_PATHS bug above, reached a different way. RLS still
+  // refused every row, so nothing leaked, but the gate wasn't running.
+  const demoAllowed = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const demoRequested =
+    request.nextUrl.searchParams.get("demo") === "true" ||
+    request.cookies.get("demo_mode")?.value === "true";
 
-  if (!supabaseUrl || !supabaseKey || demoCookie || isDemoQuery) {
-    if (isDemoQuery) {
-      response.cookies.set("demo_mode", "true", { path: "/" });
+  if (!supabaseUrl || !supabaseKey) {
+    return response;
+  }
+
+  if (demoAllowed && demoRequested) {
+    if (request.nextUrl.searchParams.get("demo") === "true") {
+      response.cookies.set("demo_mode", "true", {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 8, // a working day, not forever
+      });
     }
     return response;
+  }
+
+  // Someone carrying a stale demo cookie into a build where demo mode is off
+  // should be signed in properly, not left in a half-state.
+  if (!demoAllowed && request.cookies.get("demo_mode")) {
+    response.cookies.delete("demo_mode");
   }
 
   try {
