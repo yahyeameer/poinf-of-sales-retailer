@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { Store, Lock, Mail, AlertCircle, Sparkles, Terminal, ArrowRight, Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -13,9 +13,28 @@ import { Badge } from "@/components/ui/badge";
 // what the middleware decides on the server, or the button and the gate disagree.
 const DEMO_MODE_ENABLED = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
+/**
+ * Where to land after a successful sign-in.
+ *
+ * Read from `location` at submit time rather than with `useSearchParams()`.
+ * The hook opts the whole page out of static prerendering unless it sits under
+ * a Suspense boundary — and it broke the production build outright — but the
+ * value is only ever needed inside an event handler, which by definition runs
+ * on the client with a real URL. No hook required.
+ *
+ * Only same-origin paths are honoured. `?next=https://evil.example` would
+ * otherwise turn the login page into an open redirect that borrows this app's
+ * credibility, and `//evil.example` is protocol-relative, so it needs rejecting
+ * too.
+ */
+function redirectTarget(): string {
+  const next = new URLSearchParams(window.location.search).get("next");
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/";
+  return next;
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const params = useSearchParams();
   const [email, setEmail] = useState("owner@demo.shop");
   const [password, setPassword] = useState("demo1234");
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +66,7 @@ export default function LoginPage() {
         return;
       }
 
-      const targetUrl = params.get("next") || "/";
-      router.push(targetUrl as any);
+      router.push(redirectTarget() as any);
       router.refresh();
     } catch (err: any) {
       if (err?.message?.includes("Failed to fetch") || err?.toString()?.includes("Failed to fetch")) {
