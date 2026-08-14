@@ -128,7 +128,7 @@ export function ImportClient({ currency }: { currency: string }) {
 
       {/* Step 2 Card */}
       {parsedRows.length > 0 && (
-        <Card className="animate-in fade-in slide-in-from-bottom-2">
+        <Card className="animate-rise">
           <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">Step 2 — Preview Parsed Rows</CardTitle>

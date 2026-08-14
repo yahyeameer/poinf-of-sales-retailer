@@ -108,7 +108,7 @@ export function AiAssistant() {
 
         {/* Response Box */}
         {answer && (
-          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1.5 animate-in fade-in slide-in-from-bottom-2">
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1.5 animate-rise">
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
               <Bot className="h-4 w-4" />
               <span>AI Insights</span>
