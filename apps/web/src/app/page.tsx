@@ -5,6 +5,8 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Notice } from "@/components/ui/notice";
 import { 
   TrendingUp, 
   ShoppingCart, 
@@ -12,6 +14,7 @@ import {
   CreditCard, 
   AlertTriangle, 
   ArrowUpRight,
+  CheckCircle2,
   TrendingDown
 } from "lucide-react";
 
@@ -166,11 +169,11 @@ export default async function DashboardPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+            <h1 className="text-2xl font-bold tracking-tight text-gradient">
               Retail Dashboard
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Welcome back, <span className="font-semibold text-slate-700 dark:text-slate-300">{userName}</span> ({userRole})
+            <p className="mt-1 text-sm text-muted-foreground">
+              Welcome back, <span className="font-semibold text-foreground">{userName}</span> ({userRole})
             </p>
           </div>
           <Badge variant="outline" className="w-fit text-xs px-3 py-1 font-mono">
@@ -183,12 +186,11 @@ export default async function DashboardPage() {
         <AiAssistant />
 
         {oversold > 0 && (
-          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-950/40 dark:border-rose-900 text-rose-800 dark:text-rose-300 flex items-start gap-3 text-sm">
-            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-bold">{oversold} oversold sale(s) recorded!</span> Multiple devices checked out units exceeding current physical stock. Please inspect stock counts.
-            </div>
-          </div>
+          <Notice tone="error">
+            <span className="font-bold">{oversold} oversold sale(s) recorded!</span>{" "}
+            Multiple devices checked out units exceeding current physical stock. Please
+            inspect stock counts.
+          </Notice>
         )}
 
         {/* Telemetry Stat Cards */}
@@ -196,19 +198,19 @@ export default async function DashboardPage() {
           {/* Tile 1 */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Revenue Today
               </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <div className="grid size-8 place-items-center rounded-lg bg-primary-soft text-primary">
                 <DollarSign className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              <div className="text-2xl font-bold text-gradient">
                 {formatMoney(Number(today?.revenue_cents ?? 0), currency)}
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{today?.transactions ?? 0}</span> transactions completed
+              <p className="mt-1 text-xs text-muted-foreground">
+                <span className="font-semibold text-primary">{today?.transactions ?? 0}</span> transactions completed
               </p>
             </CardContent>
           </Card>
@@ -216,18 +218,18 @@ export default async function DashboardPage() {
           {/* Tile 2 */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Revenue This Week
               </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <div className="grid size-8 place-items-center rounded-lg bg-primary-soft text-primary">
                 <TrendingUp className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              <div className="text-2xl font-bold text-gradient">
                 {formatMoney(weekRevenue, currency)}
               </div>
-              <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+              <div className="mt-1 flex items-center gap-1 text-xs font-medium text-success">
                 <ArrowUpRight className="h-3.5 w-3.5" />
                 {percentChange(weekRevenue, prevRevenue)}
               </div>
@@ -237,18 +239,18 @@ export default async function DashboardPage() {
           {/* Tile 3 */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Weekly Orders
               </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+              <div className="grid size-8 place-items-center rounded-lg bg-primary-soft text-primary">
                 <ShoppingCart className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              <div className="text-2xl font-bold text-gradient">
                 {weekTransactions}
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {weekTransactions > 0
                   ? `${formatMoney(Math.round(weekRevenue / weekTransactions), currency)} avg ticket`
                   : "No sales recorded"}
@@ -259,18 +261,18 @@ export default async function DashboardPage() {
           {/* Tile 4 */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Cash vs Mobile
               </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <div className="grid size-8 place-items-center rounded-lg bg-warning/12 text-warning">
                 <CreditCard className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              <div className="text-2xl font-bold text-gradient">
                 {weekRevenue > 0 ? `${Math.round((cashSplit.cash / weekRevenue) * 100)}% Cash` : "—"}
               </div>
-              <p className="text-xs text-slate-500 mt-1 truncate">
+              <p className="mt-1 truncate text-xs text-muted-foreground">
                 {formatMoney(cashSplit.cash, currency)} cash · {formatMoney(cashSplit.mobile, currency)} mobile
               </p>
             </CardContent>
@@ -281,7 +283,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Panel 1: Top Movers */}
           <Card>
-            <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+            <CardHeader className="border-b border-border pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-semibold">Top Movers</CardTitle>
                 <Badge variant="secondary">Last 7 days</Badge>
@@ -289,19 +291,19 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               {movers.length === 0 ? (
-                <p className="p-6 text-sm text-slate-500 text-center">No sales in the last week.</p>
+                <EmptyState icon={ShoppingCart} title="No sales in the last week" description="Best sellers appear here once the till starts taking money." />
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="divide-y divide-border">
                   {movers.map((m, i) => (
-                    <div key={m.name} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <div key={m.name} className="flex items-center justify-between p-4 transition-colors hover:bg-muted/50">
                       <div className="flex items-center gap-3">
-                        <span className="w-6 text-xs font-bold text-slate-400 text-center">#{i + 1}</span>
+                        <span className="w-6 text-center text-xs font-bold text-muted-foreground">#{i + 1}</span>
                         <div>
-                          <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">{m.name}</div>
-                          <div className="text-xs text-slate-500">{m.units} units sold</div>
+                          <div className="text-sm font-semibold text-foreground">{m.name}</div>
+                          <div className="text-xs text-muted-foreground">{m.units} units sold</div>
                         </div>
                       </div>
-                      <div className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">
+                      <div className="text-sm font-semibold text-primary">
                         {formatMoney(m.revenue, currency)}
                       </div>
                     </div>
@@ -313,10 +315,10 @@ export default async function DashboardPage() {
 
           {/* Panel 2: Low Stock Alerts */}
           <Card>
-            <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+            <CardHeader className="border-b border-border pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTriangle className="size-4 text-warning" />
                   <CardTitle className="text-base font-semibold">Running Low</CardTitle>
                 </div>
                 <Badge variant="warning">At / below reorder point</Badge>
@@ -324,14 +326,14 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               {lowStock.length === 0 ? (
-                <p className="p-6 text-sm text-slate-500 text-center">Everything is above its reorder point.</p>
+                <EmptyState icon={CheckCircle2} title="Nothing needs reordering" description="Every product is above its reorder point." />
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="divide-y divide-border">
                   {lowStock.map((item) => (
-                    <div key={item.product_id || item.name} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <div key={item.product_id || item.name} className="flex items-center justify-between p-4 transition-colors hover:bg-muted/50">
                       <div>
-                        <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">{item.name}</div>
-                        <div className="text-xs text-slate-500">Reorder threshold: {item.reorder_point}</div>
+                        <div className="text-sm font-semibold text-foreground">{item.name}</div>
+                        <div className="text-xs text-muted-foreground">Reorder threshold: {item.reorder_point}</div>
                       </div>
                       <Badge variant={item.stock_on_hand <= 0 ? "destructive" : "warning"}>
                         {item.stock_on_hand <= 0 ? "Out of Stock" : `${item.stock_on_hand} left`}

@@ -6,7 +6,8 @@ import { importProducts } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FileSpreadsheet, CheckCircle2, AlertCircle, Upload, ArrowRight, Table as TableIcon } from "lucide-react";
+import { ActionNotice } from "@/components/ui/notice";
+import { FileSpreadsheet, Upload, ArrowRight, Table as TableIcon } from "lucide-react";
 
 interface ParsedRow {
   name: string;
@@ -87,25 +88,22 @@ export function ImportClient({ currency }: { currency: string }) {
   return (
     <div className="max-w-7xl mx-auto space-y-6 font-sans">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
-          <FileSpreadsheet className="h-6 w-6 text-emerald-600" />
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gradient">
+          <FileSpreadsheet className="size-6 text-primary" />
           CSV Catalog Bulk Import
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <p className="mt-1 text-sm text-muted-foreground">
           Import product inventory in bulk from standard CSV spreadsheet files.
         </p>
       </div>
 
       {notice && (
-        <div className={`p-4 rounded-xl text-sm flex items-center gap-3 ${notice.ok ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
-          {notice.ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <AlertCircle className="h-5 w-5 text-rose-600" />}
-          <span>{notice.message}</span>
-        </div>
+        <ActionNotice result={notice} />
       )}
 
       {/* Step 1 Card */}
       <Card>
-        <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+        <CardHeader className="border-b border-border pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">Step 1 — Paste your CSV Data</CardTitle>
             <Badge variant="outline" className="font-mono text-xs">Columns: Name, Barcode, Price, Quantity</Badge>
@@ -117,10 +115,10 @@ export function ImportClient({ currency }: { currency: string }) {
             rows={6}
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
-            className="w-full font-mono text-xs p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full rounded-lg border border-border bg-muted p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <Button onClick={parseCSV} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2">
-            <TableIcon className="h-4 w-4" />
+          <Button onClick={parseCSV}>
+            <TableIcon />
             <span>Validate & Parse CSV</span>
           </Button>
         </CardContent>
@@ -129,7 +127,7 @@ export function ImportClient({ currency }: { currency: string }) {
       {/* Step 2 Card */}
       {parsedRows.length > 0 && (
         <Card className="animate-rise">
-          <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+          <CardHeader className="border-b border-border pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-semibold">Step 2 — Preview Parsed Rows</CardTitle>
               <Badge variant={validCount > 0 ? "default" : "destructive"}>
@@ -140,7 +138,7 @@ export function ImportClient({ currency }: { currency: string }) {
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                <thead className="border-b border-border bg-muted/60 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3">Product Name</th>
                     <th className="px-5 py-3">Barcode</th>
@@ -149,11 +147,11 @@ export function ImportClient({ currency }: { currency: string }) {
                     <th className="px-5 py-3">Validation Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-border">
                   {parsedRows.map((r, i) => (
-                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="px-5 py-3 font-semibold text-slate-900 dark:text-slate-100">{r.name || "—"}</td>
-                      <td className="px-5 py-3 font-mono text-xs text-slate-500">{r.barcode || "—"}</td>
+                    <tr key={i} className="transition-colors hover:bg-muted/50">
+                      <td className="px-5 py-3 font-semibold text-foreground">{r.name || "—"}</td>
+                      <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{r.barcode || "—"}</td>
                       <td className="px-5 py-3 text-right font-medium">{r.price || "—"}</td>
                       <td className="px-5 py-3 text-right font-medium">{r.stock || "—"}</td>
                       <td className="px-5 py-3">
@@ -169,13 +167,9 @@ export function ImportClient({ currency }: { currency: string }) {
               </table>
             </div>
 
-            <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <Button
-                onClick={handleImport}
-                disabled={validCount === 0 || pending || done}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 shadow-md shadow-emerald-600/20"
-              >
-                <Upload className="h-4 w-4" />
+            <div className="flex justify-end border-t border-border p-5">
+              <Button onClick={handleImport} disabled={validCount === 0 || pending || done}>
+                <Upload />
                 <span>{pending ? "Importing..." : `Import ${validCount} Products`}</span>
               </Button>
             </div>

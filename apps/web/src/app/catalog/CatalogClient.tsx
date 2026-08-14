@@ -8,8 +8,26 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Search, Package, Barcode, AlertCircle, X, CheckCircle2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Label } from "@/components/ui/label";
+import { ActionNotice } from "@/components/ui/notice";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Search, Package, Barcode } from "lucide-react";
 
 export interface Product {
   id: string;
@@ -91,37 +109,30 @@ export function CatalogClient({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
-            <Package className="h-6 w-6 text-emerald-600" />
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gradient">
+            <Package className="size-6 text-primary" />
             Product Catalog
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage product prices, barcodes, stock levels, and inventory reorder points.
           </p>
         </div>
         {canEdit && (
           <Button
             onClick={() => { setNotice(null); setShowAddModal(true); }}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20"
           >
-            <Plus className="h-4 w-4" />
+            <Plus />
             <span>Add Product</span>
           </Button>
         )}
       </div>
 
-      {/* Notice Banner */}
-      {notice && !showAddModal && (
-        <div className={`p-4 rounded-xl text-sm flex items-center gap-3 ${notice.ok ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
-          {notice.ok ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <AlertCircle className="h-5 w-5 text-rose-600" />}
-          <span>{notice.message}</span>
-        </div>
-      )}
+      {!showAddModal && <ActionNotice result={notice} />}
 
       {/* Controls Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search by product name or barcode..."
@@ -140,8 +151,8 @@ export function CatalogClient({
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
                 filter === f
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                  ? "bg-primary text-primary-foreground glow-btn"
+                  : "bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
               {f}
@@ -152,7 +163,7 @@ export function CatalogClient({
 
       {/* Main Catalog Card & Table */}
       <Card>
-        <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+        <CardHeader className="border-b border-border pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold capitalize">
               {filter} Products
@@ -164,80 +175,72 @@ export function CatalogClient({
         </CardHeader>
         <CardContent className="p-0">
           {filteredProducts.length === 0 ? (
-            <div className="p-12 text-center text-slate-500">
-              <Package className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-              <p className="font-medium text-sm">No matching products found.</p>
-            </div>
+            <EmptyState
+              icon={Package}
+              title="No matching products"
+              description="Nothing matches that search and filter. Clear them to see the whole catalog."
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-                  <tr>
-                    <th className="px-5 py-3">Product Name</th>
-                    <th className="px-5 py-3">Barcode</th>
-                    <th className="px-5 py-3 text-right">Selling Price</th>
-                    <th className="px-5 py-3 text-right">Stock On Hand</th>
-                    <th className="px-5 py-3 text-right">Reorder Point</th>
-                    <th className="px-5 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product Name</TableHead>
+                  <TableHead>Barcode</TableHead>
+                  <TableHead className="text-right">Selling Price</TableHead>
+                  <TableHead className="text-right">Stock On Hand</TableHead>
+                  <TableHead className="text-right">Reorder Point</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                   {filteredProducts.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-slate-100">
-                        {p.name}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-500 font-mono text-xs">
-                        {p.barcode ? (
-                          <span className="flex items-center gap-1.5">
-                            <Barcode className="h-3.5 w-3.5 text-slate-400" />
-                            {p.barcode}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                        {formatMoney(p.price_cents, currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-medium">
-                        {Number(p.stock_on_hand)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right text-slate-500">
-                        {Number(p.reorder_point)}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        {!p.is_active ? (
-                          <Badge variant="destructive">Archived</Badge>
-                        ) : Number(p.stock_on_hand) <= Number(p.reorder_point) ? (
-                          <Badge variant="warning">Low Stock</Badge>
-                        ) : (
-                          <Badge variant="default">Active</Badge>
-                        )}
-                      </td>
-                    </tr>
+                  <TableRow key={p.id} data-inactive={p.is_active ? undefined : "true"}>
+                    <TableCell className="font-semibold text-foreground">{p.name}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {p.barcode ? (
+                        <span className="flex items-center gap-1.5">
+                          <Barcode className="size-3.5" />
+                          {p.barcode}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-primary">
+                      {formatMoney(p.price_cents, currency)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      {Number(p.stock_on_hand)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {Number(p.reorder_point)}
+                    </TableCell>
+                    <TableCell>
+                      {!p.is_active ? (
+                        <Badge variant="destructive">Archived</Badge>
+                      ) : Number(p.stock_on_hand) <= Number(p.reorder_point) ? (
+                        <Badge variant="warning">Low Stock</Badge>
+                      ) : (
+                        <Badge variant="default">Active</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Add Product Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-5 animate-scale-in">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Add New Product</h2>
-              <button type="button" onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add new product</DialogTitle>
+          </DialogHeader>
 
-            <form onSubmit={handleAddProduct} className="space-y-4">
+          <form onSubmit={handleAddProduct} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Product Name</label>
+                <Label className="text-xs">Product Name</Label>
                 <Input
                   required
                   placeholder="e.g. Fresh Milk 1L"
@@ -247,7 +250,7 @@ export function CatalogClient({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Barcode (Optional)</label>
+                <Label className="text-xs">Barcode (Optional)</Label>
                 <Input
                   placeholder="e.g. 600123456789"
                   value={barcode}
@@ -256,7 +259,7 @@ export function CatalogClient({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Selling Price ({currency})</label>
+                <Label className="text-xs">Selling Price ({currency})</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -270,7 +273,7 @@ export function CatalogClient({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Opening Stock</label>
+                  <Label className="text-xs">Opening Stock</Label>
                   <Input
                     type="number"
                     min="0"
@@ -279,7 +282,7 @@ export function CatalogClient({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Reorder Point</label>
+                  <Label className="text-xs">Reorder Point</Label>
                   <Input
                     type="number"
                     min="0"
@@ -289,18 +292,22 @@ export function CatalogClient({
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <Button type="submit" disabled={pending} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-                  {pending ? "Saving..." : "Save Product"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={pending}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddModal(false)}
+                disabled={pending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? "Saving…" : "Save product"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
