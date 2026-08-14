@@ -9,6 +9,11 @@ import {
   setQuantity,
   type CartLine,
 } from "@ai-pos/shared";
+import { ChevronUp } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { ActionNotice } from "@/components/ui/notice";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 import {
   openShift,
@@ -21,68 +26,38 @@ import {
   type TenderInput,
 } from "./actions";
 
-import {
-  Search,
-  ShoppingCart,
-  Plus,
-  Minus,
-  Trash2,
-  Barcode,
-  Clock,
-  CheckCircle2,
-  DollarSign,
-  CreditCard,
-  Smartphone,
-  Printer,
-  X,
-  Sparkles,
-  AlertCircle
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CartPanel } from "./components/CartPanel";
+import { CashDialog } from "./components/CashDialog";
+import { CheckoutDialog } from "./components/CheckoutDialog";
+import { CloseShiftDialog } from "./components/CloseShiftDialog";
+import { HeldSalesDialog } from "./components/HeldSalesDialog";
+import { ProductKeypad } from "./components/ProductKeypad";
+import { ReceiptDialog } from "./components/ReceiptDialog";
+import { ShiftGate } from "./components/ShiftGate";
+import { TillBar } from "./components/TillBar";
+import { XReportDialog } from "./components/XReportDialog";
+import type {
+  CashKind,
+  Notice,
+  OpenShift,
+  ParkedSale,
+  SaleReceipt,
+  Tender,
+  TillProduct,
+} from "./components/types";
 
-export interface TillProduct {
-  id: string;
-  name: string;
-  barcode: string | null;
-  price_cents: number;
-  stock_on_hand: number;
-  unit: CartLine["unit"];
-}
-export interface ParkedSale {
-  id: string;
-  label: string;
-  cart: CartLine[];
-  created_at: string;
-}
-export interface OpenShift {
-  id: string;
-  opened_at: string;
-  opening_float_cents: number;
-}
+// page.tsx imports these from here, and they describe this route's props, so
+// they stay re-exported rather than making every caller reach into components/.
+export type { TillProduct, ParkedSale, OpenShift };
 
-type Method = "cash" | "mobile_money" | "card";
-const METHOD_LABEL: Record<Method, string> = {
-  cash: "Cash",
-  mobile_money: "Mobile money",
-  card: "Card",
-};
+type DialogName = "checkout" | "cash" | "closeShift" | "held" | "xreport";
 
-interface Tender {
-  method: Method;
-  amount: string;
-  tendered: string;
-}
-
-interface Receipt {
-  saleId: string;
-  totalCents: number;
-  changeCents: number;
-  lines: CartLine[];
-}
-
+/**
+ * The till's state owner. Everything visual lives in ./components — this file
+ * holds the cart, the tenders, the idempotency key and the server calls, which
+ * is the part that must not be duplicated when the same cart renders as both a
+ * side panel and a bottom sheet.
+ */
 export function TillClient({
   products,
   openShift: shift,
@@ -92,7 +67,6 @@ export function TillClient({
   taxInclusive,
   cashierName,
   locationName,
-  canRefund,
 }: {
   products: TillProduct[];
   openShift: OpenShift | null;
@@ -102,7 +76,8 @@ export function TillClient({
   taxInclusive: boolean;
   cashierName: string;
   locationName: string;
-  canRefund: boolean;
+  /** Reserved for the refund flow, which lives on /receipts. */
+  canRefund?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -110,19 +85,11 @@ export function TillClient({
 
   const [lines, setLines] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
-  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
 
-  const [dialog, setDialog] = useState<
-    null | "checkout" | "openShift" | "closeShift" | "cash" | "held" | "xreport"
-  >(null);
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
-
-  const [floatInput, setFloatInput] = useState("50.00");
-  const [countedInput, setCountedInput] = useState("");
-  const [closeNote, setCloseNote] = useState("");
-  const [cashKind, setCashKind] = useState<"pay_in" | "pay_out" | "drop">("pay_out");
-  const [cashAmount, setCashAmount] = useState("");
-  const [cashReason, setCashReason] = useState("");
+  const [dialog, setDialog] = useState<DialogName | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [report, setReport] = useState<Record<string, unknown> | null>(null);
 
@@ -144,22 +111,11 @@ export function TillClient({
       .slice(0, 40);
   }, [products, search]);
 
-  const tendersTotal = tenders.reduce(
-    (sum, t) => sum + Math.round((parseFloat(t.amount) || 0) * 100),
-    0,
-  );
-  const outstanding = totals.totalCents - tendersTotal;
-  const cashChange = tenders
-    .filter((t) => t.method === "cash")
-    .reduce((sum, t) => {
-      const tendered = Math.round((parseFloat(t.tendered) || 0) * 100);
-      const amount = Math.round((parseFloat(t.amount) || 0) * 100);
-      return sum + Math.max(0, tendered - amount);
-    }, 0);
-
+  // Back to the scan field whenever nothing is covering it — a scanner types
+  // into whatever has focus, and a cashier should never have to click first.
   useEffect(() => {
-    if (dialog === null) searchRef.current?.focus();
-  }, [dialog]);
+    if (dialog === null && !cartOpen && receipt === null) searchRef.current?.focus();
+  }, [dialog, cartOpen, receipt]);
 
   function add(p: TillProduct) {
     setNotice(null);
@@ -193,6 +149,7 @@ export function TillClient({
     clientIdRef.current = crypto.randomUUID();
     setTenders([{ method: "cash", amount: (totals.totalCents / 100).toFixed(2), tendered: "" }]);
     setNotice(null);
+    setCartOpen(false);
     setDialog("checkout");
   }
 
@@ -251,540 +208,217 @@ export function TillClient({
   // --- no shift open: nothing else on this screen matters yet ---------------
   if (!shift) {
     return (
-      <div className="till-gate">
-        <h1>Open the till</h1>
-        <p className="subtitle">
-          Count the cash in the drawer and enter it. Everything sold this shift is
-          measured against this number, so it is worth getting right.
-        </p>
-
-        {notice && <div className={notice.ok ? "notice success" : "notice"}>{notice.message}</div>}
-
-        <div className="panel" style={{ padding: 20, maxWidth: 380 }}>
-          <label htmlFor="float">Opening float ({currency})</label>
-          <input
-            id="float"
-            type="number"
-            step="0.01"
-            min="0"
-            value={floatInput}
-            onChange={(e) => setFloatInput(e.target.value)}
-            autoFocus
-          />
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() =>
-              runAction(() => openShift(Math.round((parseFloat(floatInput) || 0) * 100)))
-            }
-          >
-            {pending ? "Opening…" : "Open shift"}
-          </button>
-        </div>
-      </div>
+      <ShiftGate
+        currency={currency}
+        pending={pending}
+        notice={notice}
+        onOpenShift={(floatCents) => runAction(() => openShift(floatCents))}
+      />
     );
   }
 
+  const cart = (
+    <CartPanel
+      lines={lines}
+      totals={totals}
+      currency={currency}
+      taxInclusive={taxInclusive}
+      parkedCount={parked.length}
+      pending={pending}
+      onQuantity={(productId, quantity) =>
+        setLines((prev) => setQuantity(prev, productId, quantity))
+      }
+      onCharge={beginCheckout}
+      onHold={() =>
+        runAction(async () => {
+          const r = await parkSale(
+            `${lines.length} item${lines.length === 1 ? "" : "s"} · ${new Date().toLocaleTimeString()}`,
+            lines,
+          );
+          if (r.ok) {
+            setLines([]);
+            setCartOpen(false);
+          }
+          return r;
+        })
+      }
+      onShowHeld={() => {
+        setCartOpen(false);
+        setDialog("held");
+      }}
+    />
+  );
+
   return (
-    <div className="till">
-      <div className="till-bar">
-        <div>
-          <span className="till-bar-label">Shift open</span>
-          <span className="till-bar-meta">
-            {locationName}
-            {" · since "}
-            {new Date(shift.opened_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            {" · float "}{formatMoney(shift.opening_float_cents, currency)}
-            {" · "}{cashierName}
-          </span>
-        </div>
-        <div className="till-bar-actions">
-          <button type="button" className="ghost" onClick={() => { setNotice(null); setDialog("cash"); }}>
-            Cash in/out
-          </button>
+    <div className="flex flex-col gap-4">
+      <TillBar
+        shift={shift}
+        currency={currency}
+        cashierName={cashierName}
+        locationName={locationName}
+        pending={pending}
+        onCashDrawer={() => {
+          setNotice(null);
+          setDialog("cash");
+        }}
+        onXReport={() => {
+          setNotice(null);
+          startTransition(async () => {
+            const r = await getShiftReport(shift.id);
+            if (r.ok) {
+              setReport(r.data as Record<string, unknown>);
+              setDialog("xreport");
+            } else {
+              setNotice(r);
+            }
+          });
+        }}
+        onCloseShift={() => {
+          setNotice(null);
+          setDialog("closeShift");
+        }}
+      />
+
+      <ActionNotice result={notice} />
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+        <ProductKeypad
+          products={filtered}
+          currency={currency}
+          search={search}
+          searchRef={searchRef}
+          onSearchChange={setSearch}
+          onSearchKeyDown={onSearchKeyDown}
+          onAdd={add}
+        />
+
+        {/* From lg the cart is always visible and sticks with the page. Below
+            that it is a sheet, opened from the bar pinned to the bottom edge. */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-6 max-h-[calc(100dvh-3rem)] rounded-xl border border-border bg-card p-4 glow-sm lit-edge relative">
+            {cart}
+          </div>
+        </aside>
+      </div>
+
+      {/* Phone: the till owns the bottom edge — /till renders without the app's
+          tab bar, so nothing else is competing for it. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border glass lit-edge safe-b px-3 pt-3 lg:hidden">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            className="ghost"
-            onClick={() => {
-              setNotice(null);
-              startTransition(async () => {
-                const r = await getShiftReport(shift.id);
-                if (r.ok) { setReport(r.data as Record<string, unknown>); setDialog("xreport"); }
-                else setNotice(r);
-              });
-            }}
+            onClick={() => setCartOpen(true)}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Show the cart"
           >
-            X report
+            <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="block text-[11px] text-muted-foreground">
+                {lines.length} item{lines.length === 1 ? "" : "s"}
+              </span>
+              <span className="block text-lg font-bold leading-tight tabular-nums text-gradient">
+                {formatMoney(totals.totalCents, currency)}
+              </span>
+            </span>
           </button>
-          <button type="button" className="ghost" onClick={() => { setNotice(null); setCountedInput(""); setDialog("closeShift"); }}>
-            Close shift
-          </button>
+
+          <Button
+            type="button"
+            size="till"
+            disabled={lines.length === 0}
+            onClick={beginCheckout}
+            className="shrink-0"
+          >
+            Charge
+          </Button>
         </div>
       </div>
+      {/* Spacer so the last row of products clears the fixed bar. */}
+      <div aria-hidden className="h-20 lg:hidden" />
 
-      {notice && <div className={notice.ok ? "notice success" : "notice"}>{notice.message}</div>}
+      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+        <SheetContent side="bottom" className="max-h-[80dvh]">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Cart</SheetTitle>
+          </SheetHeader>
+          {cart}
+        </SheetContent>
+      </Sheet>
 
-      <div className="till-grid">
-        <section className="till-products">
-          <input
-            ref={searchRef}
-            type="search"
-            placeholder="Scan a barcode or search…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={onSearchKeyDown}
-            aria-label="Scan or search products"
-          />
+      <CheckoutDialog
+        open={dialog === "checkout"}
+        onOpenChange={(open) => setDialog(open ? "checkout" : null)}
+        currency={currency}
+        totalCents={totals.totalCents}
+        tenders={tenders}
+        setTenders={setTenders}
+        pending={pending}
+        notice={notice}
+        onSubmit={submitSale}
+      />
 
-          <div className="key-grid">
-            {filtered.map((p) => {
-              const out = Number(p.stock_on_hand) <= 0;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`key${out ? " out" : ""}`}
-                  onClick={() => add(p)}
-                >
-                  <span className="key-name">{p.name}</span>
-                  <span className="key-foot">
-                    <span className="key-price">{formatMoney(p.price_cents, currency)}</span>
-                    <span className="key-stock">{Number(p.stock_on_hand)}</span>
-                  </span>
-                </button>
-              );
-            })}
-            {filtered.length === 0 && <p className="empty">Nothing matches &ldquo;{search}&rdquo;.</p>}
-          </div>
-        </section>
+      <ReceiptDialog receipt={receipt} currency={currency} onClose={() => setReceipt(null)} />
 
-        <section className="till-cart">
-          <header>
-            <span>Cart ({lines.length})</span>
-            {parked.length > 0 && (
-              <button type="button" className="linky" onClick={() => setDialog("held")}>
-                Held ({parked.length})
-              </button>
-            )}
-          </header>
+      <HeldSalesDialog
+        open={dialog === "held"}
+        onOpenChange={(open) => setDialog(open ? "held" : null)}
+        parked={parked}
+        pending={pending}
+        onResume={(sale) =>
+          runAction(async () => {
+            setLines(sale.cart);
+            return deleteParkedSale(sale.id);
+          })
+        }
+        onDiscard={(sale) => runAction(() => deleteParkedSale(sale.id))}
+      />
 
-          {lines.length === 0 ? (
-            <p className="empty">Scan or tap a product to start.</p>
-          ) : (
-            <ul className="cart-lines">
-              {lines.map((l) => (
-                <li key={l.productId}>
-                  <div className="cart-line-main">
-                    <span className="cart-name">{l.name}</span>
-                    <span className="cart-total">
-                      {formatMoney(Math.round(l.quantity * l.unitPriceCents), currency)}
-                    </span>
-                  </div>
-                  <div className="cart-line-controls">
-                    <button
-                      type="button"
-                      aria-label={`One fewer ${l.name}`}
-                      onClick={() => setLines((p) => setQuantity(p, l.productId, l.quantity - 1))}
-                    >
-                      −
-                    </button>
-                    <span className="qty">{l.quantity}</span>
-                    <button
-                      type="button"
-                      aria-label={`One more ${l.name}`}
-                      onClick={() => setLines((p) => setQuantity(p, l.productId, l.quantity + 1))}
-                    >
-                      +
-                    </button>
-                    <span className="cart-unit">
-                      @ {formatMoney(l.unitPriceCents, currency)}
-                    </span>
-                    <button
-                      type="button"
-                      className="cart-remove"
-                      onClick={() => setLines((p) => setQuantity(p, l.productId, 0))}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+      <CashDialog
+        open={dialog === "cash"}
+        onOpenChange={(open) => setDialog(open ? "cash" : null)}
+        currency={currency}
+        pending={pending}
+        notice={notice}
+        onRecord={(kind: CashKind, amountCents, reason) =>
+          runAction(() => recordCashMovement(shift.id, kind, amountCents, reason))
+        }
+      />
 
-          <div className="cart-totals">
-            <div className="row">
-              <span>Subtotal</span>
-              <span>{formatMoney(totals.subtotalCents, currency)}</span>
-            </div>
-            <div className="row muted">
-              <span>{taxInclusive ? "Tax included" : "Tax"}</span>
-              <span>{formatMoney(totals.taxCents, currency)}</span>
-            </div>
-            <div className="row grand">
-              <span>Total</span>
-              <span>{formatMoney(totals.totalCents, currency)}</span>
-            </div>
-          </div>
+      <CloseShiftDialog
+        open={dialog === "closeShift"}
+        onOpenChange={(open) => setDialog(open ? "closeShift" : null)}
+        currency={currency}
+        pending={pending}
+        notice={notice}
+        onCloseShift={(countedCents, note) =>
+          startTransition(async () => {
+            const r = await closeShift(shift.id, countedCents, note);
+            if (!r.ok) {
+              setNotice(r);
+              return;
+            }
+            const v = r.data!.variance;
+            setNotice({
+              ok: v === 0,
+              message:
+                v === 0
+                  ? `Drawer balanced exactly at ${formatMoney(r.data!.expected, currency)}.`
+                  : `Expected ${formatMoney(r.data!.expected, currency)} — ${
+                      v < 0 ? "short" : "over"
+                    } by ${formatMoney(Math.abs(v), currency)}.`,
+            });
+            setDialog(null);
+            router.refresh();
+          })
+        }
+      />
 
-          <div className="cart-actions">
-            <button type="button" className="charge" disabled={lines.length === 0} onClick={beginCheckout}>
-              Charge {lines.length > 0 && formatMoney(totals.totalCents, currency)}
-            </button>
-            <button
-              type="button"
-              className="ghost"
-              disabled={lines.length === 0 || pending}
-              onClick={() =>
-                runAction(async () => {
-                  const r = await parkSale(
-                    `${lines.length} item${lines.length === 1 ? "" : "s"} · ${new Date().toLocaleTimeString()}`,
-                    lines,
-                  );
-                  if (r.ok) setLines([]);
-                  return r;
-                })
-              }
-            >
-              Hold
-            </button>
-          </div>
-        </section>
-      </div>
-
-      {/* ---------------- checkout ---------------- */}
-      {dialog === "checkout" && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>Take payment</h2>
-            <div className="due">
-              <span>Due</span>
-              <strong>{formatMoney(totals.totalCents, currency)}</strong>
-            </div>
-
-            {tenders.map((t, i) => (
-              <div key={i} className="tender">
-                <select
-                  aria-label="Payment method"
-                  value={t.method}
-                  onChange={(e) =>
-                    setTenders((p) =>
-                      p.map((x, j) => (j === i ? { ...x, method: e.target.value as Method } : x)),
-                    )
-                  }
-                >
-                  {(Object.keys(METHOD_LABEL) as Method[]).map((m) => (
-                    <option key={m} value={m}>{METHOD_LABEL[m]}</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  step="0.01"
-                  aria-label="Amount"
-                  placeholder="Amount"
-                  value={t.amount}
-                  onChange={(e) =>
-                    setTenders((p) => p.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))
-                  }
-                />
-                {t.method === "cash" && (
-                  <input
-                    type="number"
-                    step="0.01"
-                    aria-label="Cash given"
-                    placeholder="Given"
-                    value={t.tendered}
-                    onChange={(e) =>
-                      setTenders((p) => p.map((x, j) => (j === i ? { ...x, tendered: e.target.value } : x)))
-                    }
-                  />
-                )}
-                {tenders.length > 1 && (
-                  <button
-                    type="button"
-                    className="linky"
-                    onClick={() => setTenders((p) => p.filter((_, j) => j !== i))}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            ))}
-
-            <button
-              type="button"
-              className="linky"
-              onClick={() =>
-                setTenders((p) => [
-                  ...p,
-                  {
-                    method: "mobile_money",
-                    amount: (Math.max(0, outstanding) / 100).toFixed(2),
-                    tendered: "",
-                  },
-                ])
-              }
-            >
-              + Split across another method
-            </button>
-
-            <div className="checkout-summary">
-              <div className="row">
-                <span>Tendered</span>
-                <span>{formatMoney(tendersTotal, currency)}</span>
-              </div>
-              {outstanding !== 0 && (
-                <div className="row warn-row">
-                  <span>{outstanding > 0 ? "Still owing" : "Over by"}</span>
-                  <span>{formatMoney(Math.abs(outstanding), currency)}</span>
-                </div>
-              )}
-              {cashChange > 0 && (
-                <div className="row grand">
-                  <span>Change</span>
-                  <span>{formatMoney(cashChange, currency)}</span>
-                </div>
-              )}
-            </div>
-
-            {notice && !notice.ok && <div className="notice">{notice.message}</div>}
-
-            <div className="modal-actions">
-              <button type="button" disabled={pending || outstanding !== 0} onClick={submitSale}>
-                {pending ? "Posting…" : "Complete sale"}
-              </button>
-              <button type="button" className="ghost" disabled={pending} onClick={() => setDialog(null)}>
-                Back
-              </button>
-            </div>
-            {outstanding !== 0 && (
-              <p className="hint" style={{ marginTop: 8 }}>
-                Payments have to add up to the total exactly. Change goes in the
-                &ldquo;Given&rdquo; box, not the amount.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ---------------- receipt ---------------- */}
-      {receipt && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>Sale complete</h2>
-            {receipt.changeCents > 0 && (
-              <div className="change-due">
-                <span>Change due</span>
-                <strong>{formatMoney(receipt.changeCents, currency)}</strong>
-              </div>
-            )}
-            <div className="paper">
-              {receipt.lines.map((l) => (
-                <div className="row" key={l.productId}>
-                  <span>{l.quantity}× {l.name}</span>
-                  <span>{formatMoney(Math.round(l.quantity * l.unitPriceCents), currency)}</span>
-                </div>
-              ))}
-              <hr />
-              <div className="row tot">
-                <span>TOTAL</span>
-                <span>{formatMoney(receipt.totalCents, currency)}</span>
-              </div>
-              <div className="row"><span>Ref</span><span>{receipt.saleId.slice(0, 8).toUpperCase()}</span></div>
-            </div>
-            <div className="modal-actions">
-              <button type="button" onClick={() => setReceipt(null)}>Next customer</button>
-              <button type="button" className="ghost" onClick={() => window.print()}>Print</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------- held sales ---------------- */}
-      {dialog === "held" && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>Held sales</h2>
-            {parked.length === 0 ? (
-              <p className="empty">Nothing on hold.</p>
-            ) : (
-              <ul className="held-list">
-                {parked.map((p) => (
-                  <li key={p.id}>
-                    <div>
-                      <strong>{p.label}</strong>
-                      <div className="hint">{new Date(p.created_at).toLocaleString()}</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          runAction(async () => {
-                            setLines(p.cart);
-                            return deleteParkedSale(p.id);
-                          })
-                        }
-                      >
-                        Resume
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => runAction(() => deleteParkedSale(p.id))}
-                      >
-                        Discard
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="modal-actions">
-              <button type="button" className="ghost" onClick={() => setDialog(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------- cash in / out ---------------- */}
-      {dialog === "cash" && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>Cash in or out</h2>
-            <label htmlFor="ck">What is happening</label>
-            <select id="ck" value={cashKind} onChange={(e) => setCashKind(e.target.value as typeof cashKind)}>
-              <option value="pay_out">Paying money out</option>
-              <option value="pay_in">Putting money in</option>
-              <option value="drop">Moving cash to the safe</option>
-            </select>
-
-            <label htmlFor="ca">Amount ({currency})</label>
-            <input id="ca" type="number" step="0.01" min="0" value={cashAmount} onChange={(e) => setCashAmount(e.target.value)} />
-
-            <label htmlFor="cr">What for</label>
-            <input id="cr" type="text" placeholder="e.g. delivery fare" value={cashReason} onChange={(e) => setCashReason(e.target.value)} />
-
-            {notice && !notice.ok && <div className="notice">{notice.message}</div>}
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  runAction(async () => {
-                    const r = await recordCashMovement(
-                      shift.id, cashKind,
-                      Math.round((parseFloat(cashAmount) || 0) * 100),
-                      cashReason,
-                    );
-                    if (r.ok) { setCashAmount(""); setCashReason(""); }
-                    return r;
-                  })
-                }
-              >
-                {pending ? "Recording…" : "Record"}
-              </button>
-              <button type="button" className="ghost" onClick={() => setDialog(null)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------- close shift ---------------- */}
-      {dialog === "closeShift" && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>Close the shift</h2>
-            <p className="hint" style={{ marginTop: 0 }}>
-              Count the drawer and enter what is actually in it. The expected figure
-              is deliberately hidden until you have — a target you can see is a
-              target you count towards.
-            </p>
-
-            <label htmlFor="counted">Cash counted ({currency})</label>
-            <input id="counted" type="number" step="0.01" min="0" value={countedInput}
-                   onChange={(e) => setCountedInput(e.target.value)} autoFocus />
-
-            <label htmlFor="cnote">Note (optional)</label>
-            <input id="cnote" type="text" value={closeNote} onChange={(e) => setCloseNote(e.target.value)} />
-
-            {notice && !notice.ok && <div className="notice">{notice.message}</div>}
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                disabled={pending || countedInput === ""}
-                onClick={() =>
-                  startTransition(async () => {
-                    const r = await closeShift(
-                      shift.id,
-                      Math.round((parseFloat(countedInput) || 0) * 100),
-                      closeNote.trim() || null,
-                    );
-                    if (!r.ok) { setNotice(r); return; }
-                    const v = r.data!.variance;
-                    setNotice({
-                      ok: v === 0,
-                      message:
-                        v === 0
-                          ? `Drawer balanced exactly at ${formatMoney(r.data!.expected, currency)}.`
-                          : `Expected ${formatMoney(r.data!.expected, currency)} — ${
-                              v < 0 ? "short" : "over"
-                            } by ${formatMoney(Math.abs(v), currency)}.`,
-                    });
-                    setDialog(null);
-                    router.refresh();
-                  })
-                }
-              >
-                {pending ? "Closing…" : "Count and close"}
-              </button>
-              <button type="button" className="ghost" onClick={() => setDialog(null)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------- X report ---------------- */}
-      {dialog === "xreport" && report && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>X report</h2>
-            <p className="hint" style={{ marginTop: 0 }}>Mid-shift read. The shift stays open.</p>
-            <div className="paper">
-              <div className="row"><span>Opened</span><span>{new Date(String(report.opened_at)).toLocaleString()}</span></div>
-              <div className="row"><span>Float</span><span>{formatMoney(Number(report.opening_float_cents), currency)}</span></div>
-              <hr />
-              <div className="row"><span>Sales</span><span>{String(report.sales_count)}</span></div>
-              <div className="row"><span>Gross</span><span>{formatMoney(Number(report.gross_sales_cents), currency)}</span></div>
-              <div className="row"><span>Refunds ({String(report.refunds_count)})</span><span>{formatMoney(Number(report.refunds_cents), currency)}</span></div>
-              <div className="row tot"><span>NET</span><span>{formatMoney(Number(report.net_sales_cents), currency)}</span></div>
-              <hr />
-              {(report.by_method as { method: string; amount_cents: number }[]).map((m) => (
-                <div className="row" key={m.method}>
-                  <span>{METHOD_LABEL[m.method as Method] ?? m.method}</span>
-                  <span>{formatMoney(Number(m.amount_cents), currency)}</span>
-                </div>
-              ))}
-              {(report.cash_movements as { kind: string; amount_cents: number; reason: string }[]).map((c, i) => (
-                <div className="row" key={i}>
-                  <span>{c.kind === "pay_in" ? "In" : c.kind === "drop" ? "Drop" : "Out"}: {c.reason}</span>
-                  <span>{c.kind === "pay_in" ? "" : "−"}{formatMoney(Number(c.amount_cents), currency)}</span>
-                </div>
-              ))}
-              <hr />
-              <div className="row tot">
-                <span>CASH EXPECTED</span>
-                <span>{formatMoney(Number(report.expected_cash_cents), currency)}</span>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button type="button" onClick={() => setDialog(null)}>Done</button>
-              <button type="button" className="ghost" onClick={() => window.print()}>Print</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <XReportDialog
+        open={dialog === "xreport"}
+        onOpenChange={(open) => setDialog(open ? "xreport" : null)}
+        report={report}
+        currency={currency}
+      />
     </div>
   );
 }
