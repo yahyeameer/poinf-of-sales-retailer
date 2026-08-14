@@ -13,6 +13,11 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
+    "@ai-pos/prompts#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["src/generated.ts"],
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true

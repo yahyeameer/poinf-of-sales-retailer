@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "expo start --dev-client",
     "android": "expo run:android",
-    "build": "eas build --platform android --profile preview",
+    "build:eas": "eas build --platform android --profile preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
