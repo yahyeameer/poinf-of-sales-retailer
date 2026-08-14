@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, ImageIcon, Receipt as ReceiptIcon, Store, Wallet } from "lucide-react";
+import { ImageIcon, Receipt as ReceiptIcon, Store, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ActionNotice } from "@/components/ui/notice";
 import {
   Select,
   SelectContent,
@@ -47,25 +48,6 @@ const SAMPLE_SALE = {
   cashierName: "Amina",
   locationName: "Demo Mini-Mart",
 };
-
-function NoticeBar({ notice }: { notice: NonNullable<Notice> }) {
-  return (
-    <div
-      className={
-        notice.ok
-          ? "flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-          : "flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
-      }
-    >
-      {notice.ok ? (
-        <Check className="mt-0.5 h-4 w-4 shrink-0" />
-      ) : (
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-      )}
-      <span>{notice.message}</span>
-    </div>
-  );
-}
 
 export function SettingsClient({
   shop,
@@ -189,16 +171,16 @@ export function SettingsClient({
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+        <h1 className="text-2xl font-bold tracking-tight text-gradient">
           Shop Settings
         </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Your shop&apos;s identity, what prints on a receipt, and how money is handled.
         </p>
       </div>
 
       {!canEdit && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+        <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
           Only an owner can change these. You can see what they&apos;re set to.
         </div>
       )}
@@ -209,10 +191,10 @@ export function SettingsClient({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Store className="h-4 w-4 text-emerald-600" />
+                <Store className="size-4 text-primary" />
                 Shop details
               </CardTitle>
-              <p className="text-xs text-slate-500">These print at the top of every receipt.</p>
+              <p className="text-xs text-muted-foreground">These print at the top of every receipt.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={saveProfile} className="space-y-4">
@@ -261,7 +243,7 @@ export function SettingsClient({
                   />
                 </div>
 
-                {profileNotice && <NoticeBar notice={profileNotice} />}
+                <ActionNotice result={profileNotice} />
 
                 <Button type="submit" disabled={disabled}>
                   {pending ? "Saving…" : "Save shop details"}
@@ -274,10 +256,10 @@ export function SettingsClient({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <ImageIcon className="h-4 w-4 text-emerald-600" />
+                <ImageIcon className="size-4 text-primary" />
                 Logo
               </CardTitle>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 PNG, JPEG, WebP or SVG, under 1 MB. Thermal printers are black and white, so
                 plain shapes print better than photographs.
               </p>
@@ -286,7 +268,7 @@ export function SettingsClient({
               <div className="flex flex-wrap items-center gap-4">
                 {/* Checkerboard so a transparent PNG reads as transparent, not white. */}
                 <div
-                  className="grid h-20 w-32 shrink-0 place-items-center rounded-lg border border-dashed border-slate-300 p-2 dark:border-slate-700"
+                  className="grid h-20 w-32 shrink-0 place-items-center rounded-lg border border-dashed border-border-strong p-2"
                   style={{
                     backgroundImage:
                       "linear-gradient(45deg,#e2e8f055 25%,transparent 25%),linear-gradient(-45deg,#e2e8f055 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e2e8f055 75%),linear-gradient(-45deg,transparent 75%,#e2e8f055 75%)",
@@ -302,7 +284,7 @@ export function SettingsClient({
                       className="max-h-full max-w-full object-contain"
                     />
                   ) : (
-                    <span className="text-xs text-slate-400">No logo</span>
+                    <span className="text-xs text-muted-foreground">No logo</span>
                   )}
                 </div>
 
@@ -314,7 +296,7 @@ export function SettingsClient({
                     disabled={disabled}
                     onChange={handleLogo}
                     aria-label="Upload logo"
-                    className="cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs dark:file:bg-slate-800"
+                    className="cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
                   />
                   {shop.logoUrl && (
                     <Button
@@ -336,7 +318,7 @@ export function SettingsClient({
                 </div>
               </div>
 
-              {logoNotice && <NoticeBar notice={logoNotice} />}
+              <ActionNotice result={logoNotice} />
             </CardContent>
           </Card>
 
@@ -344,10 +326,10 @@ export function SettingsClient({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <ReceiptIcon className="h-4 w-4 text-emerald-600" />
+                <ReceiptIcon className="size-4 text-primary" />
                 Receipt layout
               </CardTitle>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 The preview updates as you type and is the same component that prints, so what
                 you see is what customers get.
               </p>
@@ -388,7 +370,7 @@ export function SettingsClient({
                 <div className="space-y-2">
                   <div className="flex items-baseline justify-between">
                     <Label htmlFor="s-footer">Footer message</Label>
-                    <span className="text-xs text-slate-400">{receipt.footer.length}/300</span>
+                    <span className="text-xs text-muted-foreground">{receipt.footer.length}/300</span>
                   </div>
                   <Textarea
                     id="s-footer"
@@ -401,7 +383,7 @@ export function SettingsClient({
                   />
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <div className="space-y-3 rounded-lg border border-border p-3">
                   <Label className="flex items-center gap-2.5 font-normal">
                     <Checkbox
                       disabled={disabled || !shop.logoUrl}
@@ -411,7 +393,7 @@ export function SettingsClient({
                     <span>
                       Print the logo
                       {!shop.logoUrl && (
-                        <span className="text-slate-400"> (upload one first)</span>
+                        <span className="text-muted-foreground"> (upload one first)</span>
                       )}
                     </span>
                   </Label>
@@ -426,7 +408,7 @@ export function SettingsClient({
                   </Label>
                 </div>
 
-                {receiptNotice && <NoticeBar notice={receiptNotice} />}
+                <ActionNotice result={receiptNotice} />
 
                 <Button type="submit" disabled={disabled}>
                   {pending ? "Saving…" : "Save receipt layout"}
@@ -439,10 +421,10 @@ export function SettingsClient({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Wallet className="h-4 w-4 text-emerald-600" />
+                <Wallet className="size-4 text-primary" />
                 Money &amp; trading rules
               </CardTitle>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 These apply to new sales. Past sales keep the rate and rule they were rung up
                 with, which is why an old receipt still adds up.
               </p>
@@ -478,7 +460,7 @@ export function SettingsClient({
                   </div>
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                <div className="space-y-3 rounded-lg border border-border p-3">
                   <Label className="flex items-start gap-2.5 font-normal">
                     <span className="mt-0.5">
                       <Checkbox
@@ -491,7 +473,7 @@ export function SettingsClient({
                     </span>
                     <span>
                       Shelf prices already include tax
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-muted-foreground">
                         On: the receipt shows tax as a component of the total. Off: tax is added
                         on top at checkout.
                       </span>
@@ -510,7 +492,7 @@ export function SettingsClient({
                     </span>
                     <span>
                       Allow selling stock you don&apos;t have
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-muted-foreground">
                         Off: a sale is refused when the shelf is empty. On: it goes through and
                         is flagged for you to reconcile. Transfers between locations are never
                         allowed to oversell either way.
@@ -531,13 +513,13 @@ export function SettingsClient({
                     value={trading.minMarginPct}
                     onChange={(e) => setTrading({ ...trading, minMarginPct: e.target.value })}
                   />
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     Shown when a restock pushes a product&apos;s margin under this. The selling
                     price is never changed for you.
                   </p>
                 </div>
 
-                {tradingNotice && <NoticeBar notice={tradingNotice} />}
+                <ActionNotice result={tradingNotice} />
 
                 <Button type="submit" disabled={disabled}>
                   {pending ? "Saving…" : "Save trading settings"}
@@ -550,7 +532,7 @@ export function SettingsClient({
         {/* ---------- Live preview ---------- */}
         <div className="xl:sticky xl:top-8">
           <div className="mb-2.5 flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Receipt preview
             </span>
             <Badge variant="outline" className="font-mono text-[10px]">
@@ -558,18 +540,18 @@ export function SettingsClient({
             </Badge>
           </div>
 
-          <div className="rounded-xl bg-slate-200/60 p-4 dark:bg-slate-800/40">
+          <div className="rounded-xl bg-muted p-4">
             <Receipt shop={previewShop} sale={SAMPLE_SALE} />
           </div>
 
-          <p className="mt-3 max-w-[330px] text-xs text-slate-500">
+          <p className="mt-3 max-w-[330px] text-xs text-muted-foreground">
             Sample sale. Real receipts are on the{" "}
-            <a href="/receipts" className="text-emerald-600 underline underline-offset-2">
+            <a href="/receipts" className="text-primary underline underline-offset-2">
               Receipts
             </a>{" "}
             page.
           </p>
-          <p className="mt-1 max-w-[330px] text-xs text-slate-400">
+          <p className="mt-1 max-w-[330px] text-xs text-muted-foreground">
             Shop id <code className="font-mono">{tenantId.slice(0, 8)}</code>
           </p>
         </div>

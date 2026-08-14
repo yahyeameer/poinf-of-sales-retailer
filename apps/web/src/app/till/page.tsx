@@ -53,7 +53,7 @@ export default async function TillPage() {
   }));
 
   return (
-    <Shell shopName={ctx.shopName}>
+    <Shell shopName={ctx.shopName} fullScreenOnMobile>
       <TillClient
         products={tillProducts}
         openShift={(shift ?? null) as OpenShift | null}

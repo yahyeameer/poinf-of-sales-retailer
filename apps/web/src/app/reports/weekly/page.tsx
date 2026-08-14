@@ -1,9 +1,11 @@
 import { formatMoney } from "@ai-pos/shared";
+import { CheckCircle2, TrendingUp } from "lucide-react";
 
 import { Shell } from "@/components/Shell";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -48,7 +50,7 @@ export default async function WeeklyReportPage() {
     return (
       <Shell shopName="Demo Retail Shop">
         <DemoBanner reason="You're not signed in, so there's no week to report on." />
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Weekly Store Digest</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gradient">Weekly Store Digest</h1>
       </Shell>
     );
   }
@@ -68,7 +70,7 @@ export default async function WeeklyReportPage() {
     return (
       <Shell shopName={ctx.shopName}>
         <DemoBanner reason={`Couldn't build this week's report: ${error.message}`} />
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Weekly Store Digest</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gradient">Weekly Store Digest</h1>
       </Shell>
     );
   }
@@ -81,8 +83,8 @@ export default async function WeeklyReportPage() {
 
   return (
     <Shell shopName={ctx.shopName}>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Weekly Store Digest</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+      <h1 className="text-2xl font-bold tracking-tight text-gradient">Weekly Store Digest</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         Last seven days, straight from the ledger. Numbers only — the written summary
         goes out by email once the digest job is wired up.
       </p>
@@ -90,7 +92,7 @@ export default async function WeeklyReportPage() {
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Revenue this week
             </CardTitle>
           </CardHeader>
@@ -98,7 +100,7 @@ export default async function WeeklyReportPage() {
             <div className="text-2xl font-bold tabular-nums">
               {formatMoney(stats.revenue_this_week ?? 0, currency)}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {changeLine(stats.revenue_this_week ?? 0, stats.revenue_last_week ?? 0)}
             </p>
           </CardContent>
@@ -106,7 +108,7 @@ export default async function WeeklyReportPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Transactions
             </CardTitle>
           </CardHeader>
@@ -114,7 +116,7 @@ export default async function WeeklyReportPage() {
             <div className="text-2xl font-bold tabular-nums">
               {stats.transactions_this_week ?? 0}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {(stats.transactions_this_week ?? 0) > 0
                 ? `${formatMoney(
                     Math.round((stats.revenue_this_week ?? 0) / stats.transactions_this_week),
@@ -127,28 +129,30 @@ export default async function WeeklyReportPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Busiest time
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.busiest_day ?? "—"}</div>
-            <p className="mt-1 text-xs text-slate-500">around {hourLabel(stats.busiest_hour)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">around {hourLabel(stats.busiest_hour)}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="mt-6 space-y-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
             <CardTitle className="text-base">Top movers</CardTitle>
-            <span className="text-xs text-slate-400">by revenue, last 7 days</span>
+            <span className="text-xs text-muted-foreground">by revenue, last 7 days</span>
           </CardHeader>
           <CardContent className="p-0">
             {movers.length === 0 ? (
-              <p className="p-10 text-center text-sm text-slate-500">
-                No sales recorded this week.
-              </p>
+              <EmptyState
+                icon={TrendingUp}
+                title="No sales this week"
+                description="Best sellers appear here once the till takes money."
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -175,15 +179,17 @@ export default async function WeeklyReportPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
             <CardTitle className="text-base">Not selling</CardTitle>
-            <span className="text-xs text-slate-400">no sale in 30 days</span>
+            <span className="text-xs text-muted-foreground">no sale in 30 days</span>
           </CardHeader>
           <CardContent className="p-0">
             {deadStock.length === 0 ? (
-              <p className="p-10 text-center text-sm text-slate-500">
-                Everything on the shelf has sold in the last month.
-              </p>
+              <EmptyState
+                icon={CheckCircle2}
+                title="Nothing is sitting still"
+                description="Everything on the shelf has sold in the last month."
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -218,14 +224,16 @@ export default async function WeeklyReportPage() {
         </Card>
 
         <Card>
-          <CardHeader className="border-b border-slate-100 pb-3 dark:border-slate-800">
+          <CardHeader className="border-b border-border pb-3">
             <CardTitle className="text-base">Reorder before you run out</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {lowStock.length === 0 ? (
-              <p className="p-10 text-center text-sm text-slate-500">
-                Nothing is below its reorder point.
-              </p>
+              <EmptyState
+                icon={CheckCircle2}
+                title="Nothing needs reordering"
+                description="Every product is above its reorder point."
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -242,7 +250,7 @@ export default async function WeeklyReportPage() {
                       <TableCell className="text-right tabular-nums">
                         {Number(l.stock_on_hand)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums text-slate-500">
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
                         {Number(l.reorder_point)}
                       </TableCell>
                     </TableRow>

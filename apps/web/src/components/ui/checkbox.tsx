@@ -20,18 +20,17 @@ const Checkbox = React.forwardRef<
       ref={ref}
       type="checkbox"
       className={cn(
-        "peer h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-slate-300",
-        "bg-white transition-colors",
-        "checked:border-emerald-600 checked:bg-emerald-600",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1",
+        "peer h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-border-strong",
+        "bg-card transition-[background-color,border-color,box-shadow]",
+        "checked:border-primary checked:bg-primary checked:glow-btn",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        "dark:border-slate-700 dark:bg-slate-950",
         className,
       )}
       {...props}
     />
     <Check
-      className="pointer-events-none absolute h-3 w-3 text-white opacity-0 peer-checked:opacity-100"
+      className="pointer-events-none absolute h-3 w-3 text-primary-foreground opacity-0 peer-checked:opacity-100"
       strokeWidth={3}
     />
   </span>

@@ -1,23 +1,38 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+
 import { cn } from "@/lib/utils";
 
+/**
+ * Tinted rather than solid: a badge sits inside dense tables and lists, and a
+ * row of saturated pills fights the primary action for attention. The tint is
+ * an alpha of the semantic colour, so it reads correctly on both grounds
+ * without a hand-written `dark:` pair.
+ */
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  [
+    "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5",
+    "text-xs font-semibold whitespace-nowrap transition-colors",
+    "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
+  ],
   {
     variants: {
       variant: {
-        default: "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-        secondary: "border-transparent bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
-        destructive: "border-transparent bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
-        outline: "text-slate-950 dark:text-slate-50 border-slate-200 dark:border-slate-800",
-        warning: "border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+        default: "border-primary/25 bg-primary/12 text-primary",
+        secondary: "border-transparent bg-secondary text-secondary-foreground",
+        destructive: "border-destructive/25 bg-destructive/12 text-destructive",
+        warning: "border-warning/25 bg-warning/12 text-warning",
+        success: "border-success/25 bg-success/12 text-success",
+        outline: "border-border text-foreground",
+        /* Solid, glowing — for the one status per screen that must be read
+           first (a live shift, an over-count, an unsynced sale). */
+        solid: "border-transparent bg-primary text-primary-foreground glow-btn",
       },
     },
     defaultVariants: {
       variant: "default",
     },
-  }
+  },
 );
 
 export interface BadgeProps
@@ -25,9 +40,7 @@ export interface BadgeProps
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  );
+  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

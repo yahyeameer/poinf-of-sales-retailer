@@ -35,11 +35,11 @@ export function AnalyticsClient({
     <div className="max-w-7xl mx-auto space-y-6 font-sans">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
-          <BarChart3 className="h-6 w-6 text-emerald-600" />
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gradient">
+          <BarChart3 className="size-6 text-primary" />
           Sales & Financial Analytics
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <p className="mt-1 text-sm text-muted-foreground">
           14-day revenue trends, payment channel breakdown, and transaction volumes.
         </p>
       </div>
@@ -48,18 +48,18 @@ export function AnalyticsClient({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               14-Day Total Revenue
             </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <div className="grid size-8 place-items-center rounded-lg bg-primary-soft text-primary">
               <DollarSign className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            <div className="text-2xl font-bold text-gradient">
               {formatMoney(totalRev, currency)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               Across {dailySales.length} calendar days
             </p>
           </CardContent>
@@ -67,52 +67,52 @@ export function AnalyticsClient({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Total Transactions
             </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <div className="grid size-8 place-items-center rounded-lg bg-primary-soft text-primary">
               <ShoppingCart className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            <div className="text-2xl font-bold text-gradient">
               {totalTx}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Completed sales orders</p>
+            <p className="mt-1 text-xs text-muted-foreground">Completed sales orders</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Average Basket Size
             </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+            <div className="grid size-8 place-items-center rounded-lg bg-primary-soft text-primary">
               <TrendingUp className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            <div className="text-2xl font-bold text-gradient">
               {formatMoney(avgBasket, currency)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Per transaction ticket</p>
+            <p className="mt-1 text-xs text-muted-foreground">Per transaction ticket</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Cash Ratio
             </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div className="grid size-8 place-items-center rounded-lg bg-warning/12 text-warning">
               <CreditCard className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            <div className="text-2xl font-bold text-gradient">
               {totalRev > 0 ? `${Math.round((cashTotal / totalRev) * 100)}%` : "0%"}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               {formatMoney(cashTotal, currency)} cash sales
             </p>
           </CardContent>
@@ -121,10 +121,10 @@ export function AnalyticsClient({
 
       {/* Bar Chart Section */}
       <Card>
-        <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+        <CardHeader className="border-b border-border pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-emerald-600" />
+              <Calendar className="size-4 text-primary" />
               <CardTitle className="text-base font-semibold">14-Day Revenue Sparkline Bar Chart</CardTitle>
             </div>
             <Badge variant="outline" className="font-mono text-xs">Daily Totals</Badge>
@@ -140,11 +140,11 @@ export function AnalyticsClient({
                   className="flex-1 flex flex-col items-center h-full justify-end group relative"
                 >
                   <div
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 rounded-t-md transition-all duration-300 shadow-sm"
+                    className="w-full rounded-t-md bg-primary transition-all duration-300 hover:brightness-110"
                     style={{ height: `${Math.max(heightPct, 8)}%` }}
                     title={`${d.day}: ${formatMoney(d.revenue_cents, currency)}`}
                   />
-                  <span className="text-[10px] font-mono text-slate-400 mt-2 truncate w-full text-center">
+                  <span className="mt-2 w-full truncate text-center font-mono text-[10px] text-muted-foreground">
                     {d.day.slice(5)}
                   </span>
                 </div>
@@ -156,50 +156,50 @@ export function AnalyticsClient({
 
       {/* Payment Distribution Section */}
       <Card>
-        <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+        <CardHeader className="border-b border-border pb-4">
           <CardTitle className="text-base font-semibold">Payment Channel Distribution</CardTitle>
           <CardDescription>Breakdown by Tender Type across all registers</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Cash */}
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div className="space-y-2 rounded-xl border border-border bg-muted p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  <DollarSign className="size-4 text-muted-foreground" />
                   Cash Payments
                 </span>
                 <Badge variant="default">{totalRev > 0 ? Math.round((cashTotal / totalRev) * 100) : 0}%</Badge>
               </div>
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <div className="text-xl font-bold text-foreground">
                 {formatMoney(cashTotal, currency)}
               </div>
             </div>
 
             {/* Mobile Money */}
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div className="space-y-2 rounded-xl border border-border bg-muted p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                  <Smartphone className="h-4 w-4 text-violet-600" />
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  <Smartphone className="size-4 text-muted-foreground" />
                   Mobile Money / M-Pesa
                 </span>
                 <Badge variant="secondary">{totalRev > 0 ? Math.round((mobileTotal / totalRev) * 100) : 0}%</Badge>
               </div>
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <div className="text-xl font-bold text-foreground">
                 {formatMoney(mobileTotal, currency)}
               </div>
             </div>
 
             {/* Card */}
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div className="space-y-2 rounded-xl border border-border bg-muted p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                  <CreditCard className="h-4 w-4 text-blue-600" />
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  <CreditCard className="size-4 text-muted-foreground" />
                   Card Payments
                 </span>
                 <Badge variant="outline">{totalRev > 0 ? Math.round((cardTotal / totalRev) * 100) : 0}%</Badge>
               </div>
-              <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+              <div className="text-xl font-bold text-foreground">
                 {formatMoney(cardTotal, currency)}
               </div>
             </div>

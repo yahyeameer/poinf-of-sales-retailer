@@ -18,9 +18,8 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm",
-      "data-[state=open]:animate-in data-[state=closed]:animate-out",
-      "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+      "fixed inset-0 z-50 bg-black/55 backdrop-blur-sm",
+      "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
       className,
     )}
     {...props}
@@ -37,15 +36,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4",
-        "border border-slate-200 bg-white p-6 shadow-xl rounded-xl",
-        "dark:border-slate-800 dark:bg-slate-900",
+        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4",
+        "rounded-xl border border-border bg-popover p-6 text-popover-foreground glow-lg lit-edge",
         // A tall form on a short laptop screen must not push its own submit
         // button off the bottom of the viewport.
-        "max-h-[90vh] overflow-y-auto",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
-        "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
+        "max-h-[90dvh] overflow-y-auto",
+        // The scale has to compose with the -50%/-50% translate that centres
+        // the panel, so this is its own keyframe pair rather than `scale-in`.
+        "data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out",
         className,
       )}
       {...props}
@@ -53,8 +51,9 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         className={cn(
-          "absolute right-4 top-4 rounded-md p-1 opacity-60 transition-opacity",
-          "hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-emerald-500",
+          "absolute right-4 top-4 rounded-md p-1 text-muted-foreground",
+          "transition-colors hover:bg-muted hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           "disabled:pointer-events-none",
         )}
       >
@@ -97,7 +96,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-slate-500 dark:text-slate-400", className)}
+    className={cn("text-sm text-muted-foreground", className)}
     {...props}
   />
 ));

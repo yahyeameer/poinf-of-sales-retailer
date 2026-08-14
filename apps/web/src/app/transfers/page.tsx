@@ -1,11 +1,27 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeftRight } from "lucide-react";
 
 import { Shell } from "@/components/Shell";
+import { Notice } from "@/components/ui/notice";
 import { createClient } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/tenant";
 import { TransfersClient, type StockAtLocation, type TransferDoc } from "./TransfersClient";
 
 export const dynamic = "force-dynamic";
+
+/** The two ways onto this screen that stop before the form. */
+function TransfersGate({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto max-w-7xl space-y-6">
+      <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gradient">
+        <ArrowLeftRight className="size-6 text-primary" />
+        Stock transfers
+      </h1>
+      <Notice tone="warning">{children}</Notice>
+    </div>
+  );
+}
 
 export default async function TransfersPage() {
   const ctx = await getTenantContext();
@@ -14,10 +30,9 @@ export default async function TransfersPage() {
   if (ctx.role === "cashier") {
     return (
       <Shell shopName={ctx.shopName}>
-        <h1>Stock Transfers</h1>
-        <div className="notice">
+        <TransfersGate>
           Moving stock between locations is limited to owners and managers.
-        </div>
+        </TransfersGate>
       </Shell>
     );
   }
@@ -39,12 +54,14 @@ export default async function TransfersPage() {
   if (ctx.locations.length < 2) {
     return (
       <Shell shopName={ctx.shopName}>
-        <h1>Stock Transfers</h1>
-        <p className="subtitle">Move goods between your locations.</p>
-        <div className="notice">
+        <TransfersGate>
           You only have one location, so there is nowhere to transfer to. Add a warehouse
-          on the <a href="/locations">Locations</a> page first.
-        </div>
+          on the{" "}
+          <Link href="/locations" className="font-semibold underline underline-offset-4">
+            Locations
+          </Link>{" "}
+          page first.
+        </TransfersGate>
       </Shell>
     );
   }

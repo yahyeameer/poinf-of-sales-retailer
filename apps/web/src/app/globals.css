@@ -1,344 +1,560 @@
-/* Tailwind v4 needs this import in the CSS entry point — the PostCSS plugin
-   alone generates nothing without it. It was missing, so every utility class
-   across the shadcn components resolved to no rule at all: `max-w-lg` computed
-   to `none`, dialogs rendered full-width and unpositioned, and the whole
-   redesign was invisible. */
+/* ============================================================================
+   AI POS — design system
+   ----------------------------------------------------------------------------
+   Tailwind v4. The import is load-bearing: the PostCSS plugin alone emits
+   nothing without it, and every utility across the shadcn components silently
+   resolves to no rule at all.
+   ============================================================================ */
+
 @import "tailwindcss";
 
-/* Preflight would otherwise strip the borders off the hand-written tables and
-   panels on the pages that predate Tailwind here. Everything below styles
-   through these variables, and the two systems sit side by side until the
-   remaining pages are converted. */
+/* Class-strategy dark mode. `prefers-color-scheme` alone can't be overridden by
+   a toggle, so the resolved theme is written to <html class="dark"> by the
+   anti-flash script in layout.tsx and this variant keys off that instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ----------------------------------------------------------------------------
+   Palette — emerald neon
+   Semantic names only. Nothing below this block should reference a raw hex or a
+   Tailwind numbered colour; that is what made the previous pass drift, with
+   `slate-200/dark:slate-800` pairs hand-repeated at ~300 call sites.
+   ---------------------------------------------------------------------------- */
 
 :root {
-  --bg: #fbfbfa;
-  --surface: #ffffff;
-  --border: #e6e4e0;
-  --text: #1c1b19;
-  --muted: #6f6b64;
-  --accent: #146356;
-  --warn: #9a5b12;
-  --danger: #a2321f;
-  --radius: 10px;
+  --background: #f6fbf9;
+  --foreground: #05140f;
+
+  --card: #ffffff;
+  --card-foreground: #05140f;
+  --elevated: #ffffff;
+
+  --popover: #ffffff;
+  --popover-foreground: #05140f;
+
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --primary-bright: #10b981;
+  --primary-soft: #ecfdf5;
+
+  --secondary: #eaf2ef;
+  --secondary-foreground: #0b241d;
+
+  --muted: #eaf2ef;
+  --muted-foreground: #5a6b65;
+
+  --accent: #d1fae5;
+  --accent-foreground: #04372a;
+
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  --border: #dde8e4;
+  --border-strong: #c3d6d0;
+  --input: #dde8e4;
+  --ring: #10b981;
+
+  /* Glow. Light mode gets a restrained version — a neon bloom that reads well
+     on a dark panel turns into grey mud on white, so these lean on tight,
+     saturated shadows plus a coloured hairline instead of a wide blur. */
+  --glow-rgb: 16 185 129;
+  --glow-sm: 0 1px 2px rgb(5 20 15 / 0.06), 0 0 0 1px rgb(var(--glow-rgb) / 0.06);
+  --glow-md:
+    0 4px 16px -6px rgb(5 20 15 / 0.12), 0 0 0 1px rgb(var(--glow-rgb) / 0.1),
+    0 0 20px -10px rgb(var(--glow-rgb) / 0.5);
+  --glow-lg:
+    0 12px 32px -12px rgb(5 20 15 / 0.16), 0 0 0 1px rgb(var(--glow-rgb) / 0.16),
+    0 0 40px -14px rgb(var(--glow-rgb) / 0.6);
+  --glow-btn: 0 1px 2px rgb(5 20 15 / 0.1), 0 4px 14px -6px rgb(var(--glow-rgb) / 0.55);
+  --glow-btn-hover: 0 2px 4px rgb(5 20 15 / 0.12), 0 8px 24px -6px rgb(var(--glow-rgb) / 0.75);
+
+  /* The hairline of light along a card's top edge. Sells depth far more cheaply
+     than a heavier shadow does, and it survives on both grounds. */
+  --lit-edge: rgb(255 255 255 / 0.9);
+
+  --radius: 0.75rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161513;
-    --surface: #201f1c;
-    --border: #33312d;
-    --text: #f2f0ec;
-    --muted: #a29d95;
-    --accent: #4bbfa5;
-    --warn: #d9a14e;
-    --danger: #e08272;
+.dark {
+  --background: #07100d;
+  --foreground: #e8f5f0;
+
+  --card: #0c1a16;
+  --card-foreground: #e8f5f0;
+  --elevated: #112420;
+
+  --popover: #0e1f1a;
+  --popover-foreground: #e8f5f0;
+
+  --primary: #34d399;
+  --primary-foreground: #04140f;
+  --primary-bright: #6ee7b7;
+  --primary-soft: #0a2b22;
+
+  --secondary: #132b25;
+  --secondary-foreground: #d5ebe4;
+
+  --muted: #132b25;
+  --muted-foreground: #8aa69e;
+
+  --accent: #0f342b;
+  --accent-foreground: #a7f3d0;
+
+  --success: #34d399;
+  --success-foreground: #04140f;
+  --warning: #fbbf24;
+  --warning-foreground: #1a1204;
+  --destructive: #f87171;
+  --destructive-foreground: #1a0707;
+
+  --border: #1c3a32;
+  --border-strong: #2a5348;
+  --input: #1c3a32;
+  --ring: #34d399;
+
+  /* Dark ground is where the neon actually earns its keep — the blur radii go
+     wide and the alphas roughly double. */
+  --glow-rgb: 52 211 153;
+  --glow-sm: 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(var(--glow-rgb) / 0.08);
+  --glow-md:
+    0 4px 20px -8px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(var(--glow-rgb) / 0.14),
+    0 0 28px -8px rgb(var(--glow-rgb) / 0.35);
+  --glow-lg:
+    0 16px 40px -12px rgb(0 0 0 / 0.8), 0 0 0 1px rgb(var(--glow-rgb) / 0.22),
+    0 0 56px -12px rgb(var(--glow-rgb) / 0.5);
+  --glow-btn: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 22px -8px rgb(var(--glow-rgb) / 0.7);
+  --glow-btn-hover: 0 2px 6px rgb(0 0 0 / 0.6), 0 10px 34px -8px rgb(var(--glow-rgb) / 0.95);
+
+  --lit-edge: rgb(255 255 255 / 0.07);
+}
+
+/* ----------------------------------------------------------------------------
+   Token → utility bridge
+   `inline` so the generated utilities reference the custom properties by name
+   rather than snapshotting their light-mode values; without it every
+   `bg-card` would freeze at #ffffff and dark mode would do nothing.
+   ---------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-elevated: var(--elevated);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-bright: var(--primary-bright);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-sm: calc(var(--radius) - 0.375rem);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+  --radius-2xl: calc(var(--radius) + 0.5rem);
+
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI Variable Text", "Segoe UI",
+    -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", "JetBrains Mono",
+    Consolas, "Liberation Mono", monospace;
+
+  --animate-pulse-glow: pulse-glow 3.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-rise: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  /* Radix enter/exit pairs. `tailwindcss-animate` is deliberately not a
+     dependency here, so `animate-in` / `fade-in-0` / `zoom-in-95` do not exist —
+     they were silently no-ops across dialog, select and four pages. These are
+     the real thing, driven off data-[state=open] / data-[state=closed].
+     Radix keeps the node mounted until animationend, so the exits do run. */
+  --animate-fade-in: fade-in 0.15s ease both;
+  --animate-fade-out: fade-out 0.12s ease both;
+  --animate-scale-in: scale-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-out: scale-out 0.12s ease-in both;
+  /* Separate pair for the centred dialog — its scale has to compose with the
+     -50%/-50% translate that positions it. See the keyframes below. */
+  --animate-dialog-in: dialog-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-dialog-out: dialog-out 0.13s ease-in both;
+  --animate-slide-up: slide-up 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-slide-down: slide-down 0.18s ease-in both;
+  --animate-slide-in-left: slide-in-left 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-slide-out-left: slide-out-left 0.18s ease-in both;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgb(var(--glow-rgb) / 0.45);
+  }
+  50% {
+    opacity: 0.92;
+    box-shadow: 0 0 0 6px rgb(var(--glow-rgb) / 0);
   }
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-a {
-  color: inherit;
-}
-
-.shell {
-  display: grid;
-  grid-template-columns: 216px 1fr;
-  min-height: 100vh;
-}
-
-@media (max-width: 720px) {
-  .shell {
-    grid-template-columns: 1fr;
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
   }
-  .sidebar {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Plain scale — popovers, dropdowns, the select menu. These are positioned by
+   Radix's popper, so they must not carry a translate of their own. */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* The centred dialog is held at -50%/-50%, so its scale has to be composed with
+   that translate — animating a bare `scale` would drop the panel to the
+   top-left corner for the duration of the transition. */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes dialog-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Base
+   Every bare-element rule here is wrapped in :where() so it contributes zero
+   specificity. The previous stylesheet set `button { width:100%; margin-top:18px;
+   background: var(--accent) }` unlayered, which outranks all of Tailwind's
+   layered utilities — so every shadcn <Button> rendered as a full-width teal
+   slab no matter which variant it asked for, and the whole conversion looked
+   broken. Zero-specificity defaults can be overridden by a single utility class.
+   ---------------------------------------------------------------------------- */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  :where(html) {
+    -webkit-text-size-adjust: 100%;
+    /* Notched phones: the till's action bar sits on the bottom edge. */
+    scroll-behavior: smooth;
+  }
+
+  :where(body) {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Stops iOS rubber-banding from exposing a white strip under a dark app. */
+    overscroll-behavior-y: none;
+  }
+
+  :where(h1, h2, h3, h4) {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  :where(a) {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  :where(button, input, select, textarea) {
+    font: inherit;
+    color: inherit;
+  }
+
+  :where(button) {
+    cursor: pointer;
+  }
+
+  :where(button:disabled) {
+    cursor: not-allowed;
+  }
+
+  /* Money and counts must not jitter as they update. */
+  :where(td, th, .num, output) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background: rgb(var(--glow-rgb) / 0.28);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+    background-clip: content-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   Custom utilities
+   ---------------------------------------------------------------------------- */
+
+@utility glow-sm {
+  box-shadow: var(--glow-sm);
+}
+
+@utility glow-md {
+  box-shadow: var(--glow-md);
+}
+
+@utility glow-lg {
+  box-shadow: var(--glow-lg);
+}
+
+@utility glow-btn {
+  box-shadow: var(--glow-btn);
+}
+
+/* A one-pixel highlight along the top edge, the way real glass catches light.
+   Cheap depth that reads correctly on both grounds.
+
+   Deliberately does NOT set `position: relative` — it has to be usable on the
+   fixed dialog panel and the fixed tab bar, and a `position` here would race
+   `fixed`/`absolute` in the same layer with nothing in `cn()` able to see the
+   conflict. Pair it with a positioning utility at the call site instead. */
+@utility lit-edge {
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--lit-edge) 22%, var(--lit-edge) 78%, transparent);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+}
+
+/* Headline numerals — the figure a shop owner actually looks at. */
+@utility text-gradient {
+  background-image: linear-gradient(135deg, var(--foreground) 12%, var(--primary) 92%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility text-gradient-primary {
+  background-image: linear-gradient(135deg, var(--primary) 0%, var(--primary-bright) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility text-glow {
+  text-shadow: 0 0 18px rgb(var(--glow-rgb) / 0.45);
+}
+
+@utility glass {
+  background: color-mix(in oklab, var(--card) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+/* Ambient light bloom behind hero areas. Sits under content, never intercepts
+   clicks, and stays out of the way of print. */
+@utility aurora {
+  position: relative;
+  isolation: isolate;
+  &::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -40% -10% auto -10%;
+    height: 420px;
+    background:
+      radial-gradient(50% 60% at 22% 40%, rgb(var(--glow-rgb) / 0.18), transparent 70%),
+      radial-gradient(45% 55% at 78% 20%, rgb(var(--glow-rgb) / 0.1), transparent 70%);
+    filter: blur(28px);
+    pointer-events: none;
+  }
+}
+
+/* Loading placeholder that reads as "arriving", not "broken". */
+@utility shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    color-mix(in oklab, var(--muted) 55%, var(--card)) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Retail hit target. 44px is the web guideline; a shop phone held one-handed
+   over a counter needs more. */
+@utility tap {
+  min-height: 3.25rem;
+}
+
+@utility safe-b {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
     display: none;
   }
 }
 
-.sidebar {
-  border-right: 1px solid var(--border);
-  padding: 20px 14px;
-  background: var(--surface);
-}
+/* ----------------------------------------------------------------------------
+   Print — the receipt is a physical object. Keep it on white in both themes and
+   print only it.
+   ---------------------------------------------------------------------------- */
 
-.sidebar nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 18px;
-}
-
-.nav-group-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  padding: 4px 10px;
-}
-
-.sidebar nav a {
-  padding: 7px 10px;
-  border-radius: 7px;
-  text-decoration: none;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.sidebar nav a:hover {
-  background: var(--bg);
-  color: var(--text);
-}
-
-.main {
-  /* min-width: 0 is load-bearing. A 1fr grid track defaults to min-content
-     width, so a wide table would push this column past the viewport and
-     scroll the whole page sideways instead of scrolling inside its panel. */
-  min-width: 0;
-  padding: 28px 32px 64px;
-  max-width: 1080px;
-}
-
-.brand {
-  font-weight: 620;
-  letter-spacing: -0.01em;
-}
-
-.shop-name {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
-h1 {
-  font-size: 21px;
-  font-weight: 620;
-  letter-spacing: -0.015em;
-  margin: 0 0 2px;
-}
-
-.subtitle {
-  color: var(--muted);
-  font-size: 13px;
-  margin: 0 0 24px;
-}
-
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.tile {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-}
-
-.tile .label {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.tile .value {
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.tile .delta {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 4px;
-}
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 20px;
-  /* auto, not hidden: a narrow phone scrolls the table inside the panel
-     rather than clipping the revenue column off the right edge. */
-  overflow-x: auto;
-}
-
-.panel > header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 560;
-  font-size: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.panel > header .hint {
-  font-weight: 400;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 9px 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-th {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-td.num,
-th.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.empty {
-  padding: 28px 16px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.pill {
-  display: inline-block;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 11px;
-  border: 1px solid var(--border);
-  color: var(--muted);
-}
-
-.pill.warn {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
-}
-
-.pill.danger {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
-}
-
-.notice {
-  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
-  background: color-mix(in srgb, var(--warn) 8%, transparent);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  font-size: 13px;
-  margin-bottom: 20px;
-}
-
-.notice.success {
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-}
-
-/* --- sample-data warning --- */
-
-/* Deliberately louder than .notice. This says the numbers on screen are not
-   the shop's own, and it has to survive being glanced past. */
-.demo-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
-  border-left: 4px solid var(--danger);
-  background: color-mix(in srgb, var(--danger) 9%, transparent);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  font-size: 13px;
-  margin-bottom: 20px;
-}
-
-.demo-banner strong {
-  color: var(--danger);
-}
-
-.demo-banner span {
-  color: var(--muted);
-}
-
-/* --- settings --- */
-
-.settings-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 28px;
-  align-items: start;
-}
-
-.settings-forms {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-width: 0;
-}
-
-.preview-sticky {
-  position: sticky;
-  top: 24px;
-}
-
-/* Checkerboard so a transparent PNG reads as transparent rather than white. */
-.logo-slot {
-  width: 120px;
-  height: 80px;
-  display: grid;
-  place-items: center;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 8px;
-  background-color: var(--bg);
-  background-image:
-    linear-gradient(45deg, color-mix(in srgb, var(--border) 45%, transparent) 25%, transparent 25%),
-    linear-gradient(-45deg, color-mix(in srgb, var(--border) 45%, transparent) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--border) 45%, transparent) 75%),
-    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--border) 45%, transparent) 75%);
-  background-size: 12px 12px;
-  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
-}
-
-.logo-slot img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-/* The receipt is a physical object — keep it on white in both themes, and
-   print only it when the owner hits Print. */
 @media print {
   body * {
     visibility: hidden;
@@ -352,410 +568,7 @@ th.num {
     left: 0;
     top: 0;
     box-shadow: none;
+    color: #000;
+    background: #fff;
   }
 }
-
-@media (max-width: 1100px) {
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-  .preview-sticky {
-    position: static;
-  }
-}
-
-/* --- location switcher --- */
-
-.loc-switcher {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 14px 0 4px;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-  border-radius: 8px;
-}
-
-.loc-switcher .loc-label {
-  font-size: 10.5px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.loc-switcher .loc-static {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.loc-switcher select {
-  width: 100%;
-  margin: 0;
-  padding: 5px 7px;
-  font-size: 13px;
-  font-weight: 550;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-}
-
-/* --- modals --- */
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  z-index: 100;
-}
-
-.modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  width: 100%;
-  max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal select {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  margin-bottom: 4px;
-}
-
-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-:where(a, button, input, select, textarea):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* --- auth --- */
-
-.auth {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-
-.auth form {
-  width: 100%;
-  max-width: 340px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-}
-
-.auth h1 {
-  margin-bottom: 18px;
-}
-
-label {
-  display: block;
-  font-size: 13px;
-  color: var(--muted);
-  margin: 12px 0 5px;
-}
-
-input {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 15px;
-  font-family: inherit;
-}
-
-button {
-  width: 100%;
-  margin-top: 18px;
-  padding: 9px;
-  border: none;
-  border-radius: 7px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 520;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.error {
-  margin-top: 14px;
-  color: var(--danger);
-  font-size: 13px;
-}
-
-.hint {
-  margin-top: 16px;
-  font-size: 12px;
-  color: var(--muted);
-  text-align: center;
-}
-
-/* --- AI Assistant Component --- */
-.ai-assistant-card {
-  background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-}
-
-.ai-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.ai-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--accent);
-}
-
-.ai-input-group {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.ai-input-group input {
-  flex: 1;
-}
-
-.quick-prompts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chip-button {
-  width: auto;
-  margin: 0;
-  padding: 4px 10px;
-  background: var(--bg);
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 400;
-  transition: all 0.15s ease;
-}
-
-.chip-button:hover {
-  color: var(--text);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.ai-response {
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  font-size: 14px;
-}
-
-.ai-response p {
-  margin: 4px 0 0;
-}
-
-
-/* ===================================================================
-   The till
-   Built for a phone held one-handed in a busy shop: 56px minimum hit
-   area (44 is a web guideline, not a retail one), tabular figures
-   everywhere money appears, and the total as the largest object on
-   screen because the cashier reads it upside down across a counter.
-   =================================================================== */
-
-.till-gate { max-width: 620px; }
-
-.till-bar {
-  display: flex; flex-wrap: wrap; gap: 12px;
-  align-items: center; justify-content: space-between;
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: var(--radius);
-  padding: 10px 14px; margin-bottom: 16px;
-}
-.till-bar-label { font-weight: 600; color: var(--accent); margin-right: 8px; }
-.till-bar-meta { font-size: 13px; color: var(--muted); }
-.till-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-.till-grid {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-  gap: 18px; align-items: start;
-}
-@media (max-width: 860px) { .till-grid { grid-template-columns: 1fr; } }
-
-.till-products input[type="search"] {
-  width: 100%; min-height: 56px; font-size: 16px; margin-bottom: 12px;
-}
-
-.key-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-}
-.key {
-  min-height: 76px; width: 100%; margin: 0;
-  display: flex; flex-direction: column; justify-content: space-between;
-  text-align: left; gap: 8px;
-  padding: 11px 12px; border-radius: 9px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--text);
-  cursor: pointer;
-}
-.key:hover { border-color: var(--accent); }
-.key.out { opacity: .55; }
-.key-name { font-size: 13.5px; font-weight: 550; line-height: 1.3; }
-.key-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.key-price { font-weight: 620; color: var(--accent); font-variant-numeric: tabular-nums; }
-.key-stock { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-
-.till-cart {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); position: sticky; top: 18px;
-}
-.till-cart > header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 15px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px;
-}
-
-.cart-lines { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; }
-.cart-lines li { padding: 10px 15px; border-bottom: 1px solid var(--border); }
-.cart-line-main { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-.cart-name { font-weight: 550; font-size: 14px; }
-.cart-total { font-variant-numeric: tabular-nums; font-weight: 600; }
-.cart-line-controls { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
-.cart-line-controls button {
-  width: 40px; height: 40px; min-height: 40px; margin: 0; padding: 0;
-  font-size: 19px; line-height: 1; border-radius: 8px;
-  background: var(--bg); color: var(--text); border: 1px solid var(--border);
-}
-.cart-line-controls .qty {
-  min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600;
-}
-.cart-unit { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.cart-remove {
-  margin-left: auto !important; width: auto !important; height: auto !important;
-  min-height: 0 !important; padding: 4px 8px !important; font-size: 12px !important;
-  background: transparent !important; color: var(--danger) !important; border: none !important;
-}
-
-.cart-totals { padding: 12px 15px; border-top: 1px solid var(--border); }
-.cart-totals .row {
-  display: flex; justify-content: space-between; gap: 10px;
-  font-variant-numeric: tabular-nums; padding: 3px 0;
-}
-.cart-totals .row.muted { color: var(--muted); font-size: 13px; }
-.cart-totals .row.grand {
-  font-size: 26px; font-weight: 680; letter-spacing: -.02em;
-  margin-top: 7px; padding-top: 9px; border-top: 1px solid var(--border);
-}
-
-.cart-actions { display: flex; flex-direction: column; gap: 8px; padding: 0 15px 15px; }
-.cart-actions .charge { min-height: 60px; font-size: 17px; font-weight: 620; margin: 0; }
-
-button.ghost, .ghost {
-  background: transparent; color: var(--muted);
-  border: 1px solid var(--border); margin: 0;
-}
-button.ghost:hover { color: var(--text); border-color: var(--border-strong, var(--muted)); }
-.linky {
-  background: none !important; border: none !important; color: var(--accent) !important;
-  padding: 4px 0 !important; margin: 0 !important; width: auto !important;
-  min-height: 0 !important; font-size: 13px !important; cursor: pointer;
-}
-
-.due, .change-due {
-  display: flex; justify-content: space-between; align-items: baseline;
-  padding: 12px 14px; border-radius: 9px; margin-bottom: 14px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-}
-.due strong, .change-due strong {
-  font-size: 27px; font-weight: 680; letter-spacing: -.02em;
-  font-variant-numeric: tabular-nums; color: var(--accent);
-}
-
-.tender { display: grid; grid-template-columns: 1fr 100px 100px auto; gap: 7px; margin-bottom: 8px; align-items: center; }
-.tender select, .tender input { margin: 0; min-height: 46px; }
-@media (max-width: 520px) { .tender { grid-template-columns: 1fr 1fr; } }
-
-.checkout-summary { margin: 14px 0; padding-top: 11px; border-top: 1px solid var(--border); }
-.checkout-summary .row {
-  display: flex; justify-content: space-between; padding: 3px 0;
-  font-variant-numeric: tabular-nums;
-}
-.checkout-summary .row.warn-row { color: var(--warn); font-weight: 600; }
-.checkout-summary .row.grand { font-size: 21px; font-weight: 660; color: var(--accent); }
-
-.modal-actions { display: flex; gap: 10px; margin-top: 18px; }
-.modal-actions button { margin: 0; min-height: 48px; }
-
-.paper {
-  background: var(--bg); border: 1px dashed var(--border);
-  border-radius: 6px; padding: 14px;
-  font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; line-height: 1.7;
-}
-.paper .row { display: flex; justify-content: space-between; gap: 12px; }
-.paper .row.tot { font-weight: 700; font-size: 14px; }
-.paper hr { border: none; border-top: 1px dashed var(--border); margin: 8px 0; }
-
-.held-list { list-style: none; margin: 0; padding: 0; }
-.held-list li {
-  display: flex; justify-content: space-between; align-items: center; gap: 12px;
-  padding: 10px 0; border-bottom: 1px solid var(--border);
-}
-.held-list button { margin: 0; width: auto; min-height: 42px; padding: 0 14px; }
-
-/* The one thing staff open the app to do. Weighted so it reads as the
-   primary action rather than the first item in a list. */
-.sidebar nav a.nav-primary {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  font-weight: 600;
-}
-.sidebar nav a.nav-primary:hover {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--accent);
-}
-
-.refund-lines { list-style: none; margin: 12px 0 0; padding: 0; }
-.refund-lines li {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border);
-}
-.refund-lines input { width: 78px; text-align: right; font-variant-numeric: tabular-nums; }

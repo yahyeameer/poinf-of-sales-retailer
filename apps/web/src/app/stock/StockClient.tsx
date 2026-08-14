@@ -3,13 +3,15 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { AlertTriangle, Check, ClipboardList, Lock, Plus } from "lucide-react";
+import { CheckCircle2, ClipboardList, Lock, PackageSearch, Plus } from "lucide-react";
 
 import { recordStockAdjustment, type AdjustmentReason } from "@/app/actions";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ActionNotice, Notice } from "@/components/ui/notice";
 import {
   Dialog,
   DialogContent,
@@ -138,13 +140,13 @@ export function StockClient({
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-            <ClipboardList className="h-6 w-6 text-emerald-600" />
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gradient">
+            <ClipboardList className="size-6 text-primary" />
             Stock &amp; Inventory Ledger
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             Balances at{" "}
-            <span className="font-semibold text-slate-700 dark:text-slate-300">
+            <span className="font-semibold text-foreground">
               {locationName}
             </span>
             . Adjustments you record here land at this location.
@@ -164,25 +166,10 @@ export function StockClient({
         )}
       </div>
 
-      {notice && !showModal && (
-        <div
-          className={
-            notice.ok
-              ? "flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-              : "flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
-          }
-        >
-          {notice.ok ? (
-            <Check className="mt-0.5 h-4 w-4 shrink-0" />
-          ) : (
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          )}
-          <span>{notice.message}</span>
-        </div>
-      )}
+      {!showModal && <ActionNotice result={notice} />}
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
           <CardTitle className="text-base">Stock alerts &amp; low balances</CardTitle>
           <Badge variant={lowStock.length > 0 ? "destructive" : "outline"} className="text-xs">
             {lowStock.length} need attention
@@ -190,9 +177,11 @@ export function StockClient({
         </CardHeader>
         <CardContent className="p-0">
           {lowStock.length === 0 ? (
-            <p className="p-10 text-center text-sm text-slate-500">
-              Everything is above its reorder point.
-            </p>
+            <EmptyState
+              icon={CheckCircle2}
+              title="Nothing needs reordering"
+              description="Every product at this location is above its reorder point."
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -208,11 +197,11 @@ export function StockClient({
                 {lowStock.map((item) => (
                   <TableRow key={`${item.product_id}-${item.location_name ?? ""}`}>
                     <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-slate-500">{item.location_name ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.location_name ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {Number(item.stock_on_hand)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-slate-500">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {Number(item.reorder_point)}
                     </TableCell>
                     <TableCell>
@@ -221,7 +210,7 @@ export function StockClient({
                       ) : (
                         <Badge
                           variant="outline"
-                          className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400"
+                          className="border-warning/25 bg-warning/12 text-warning"
                         >
                           Reorder
                         </Badge>
@@ -236,7 +225,7 @@ export function StockClient({
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
           <CardTitle className="text-base">Recent stock movements</CardTitle>
           <Badge variant="outline" className="gap-1 text-xs">
             <Lock className="h-3 w-3" /> append-only
@@ -244,9 +233,11 @@ export function StockClient({
         </CardHeader>
         <CardContent className="p-0">
           {initialMovements.length === 0 ? (
-            <p className="p-10 text-center text-sm text-slate-500">
-              No stock movements recorded yet.
-            </p>
+            <EmptyState
+              icon={PackageSearch}
+              title="No movements yet"
+              description="Sales, restocks and corrections all land here as they happen."
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -265,7 +256,7 @@ export function StockClient({
                   const delta = Number(m.delta);
                   return (
                     <TableRow key={m.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-slate-500">
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                         {new Date(m.created_at).toLocaleString()}
                       </TableCell>
                       <TableCell>{prodName}</TableCell>
@@ -273,8 +264,8 @@ export function StockClient({
                         className={cn(
                           "text-right font-semibold tabular-nums",
                           delta > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-rose-600 dark:text-rose-400",
+                            ? "text-success"
+                            : "text-destructive",
                         )}
                       >
                         {delta > 0 ? `+${delta}` : delta}
@@ -285,7 +276,7 @@ export function StockClient({
                             {REASON_LABELS[m.reason] ?? m.reason}
                           </Badge>
                           {m.note && (
-                            <span className="text-xs text-slate-400">{m.note}</span>
+                            <span className="text-xs text-muted-foreground">{m.note}</span>
                           )}
                         </span>
                       </TableCell>
@@ -347,7 +338,7 @@ export function StockClient({
             <div className="space-y-2">
               <Label htmlFor="s-change">
                 Quantity change{" "}
-                <span className="font-normal text-slate-400">
+                <span className="font-normal text-muted-foreground">
                   {reason === "restock" ? "(units received)" : "(+ to add, − to remove)"}
                 </span>
               </Label>
@@ -376,7 +367,7 @@ export function StockClient({
                   onChange={(e) => setUnitCost(e.target.value)}
                   className="tabular-nums"
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   Folded into the weighted average cost. The selling price is left alone —
                   you&apos;ll get a warning if margin drops below your minimum.
                 </p>
@@ -393,12 +384,7 @@ export function StockClient({
               />
             </div>
 
-            {notice && !notice.ok && (
-              <div className="flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{notice.message}</span>
-              </div>
-            )}
+            {notice && !notice.ok && <Notice tone="error">{notice.message}</Notice>}
 
             <DialogFooter>
               <Button

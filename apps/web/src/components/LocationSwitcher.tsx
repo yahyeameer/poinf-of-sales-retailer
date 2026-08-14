@@ -39,13 +39,13 @@ export function LocationSwitcher({
   // disabled dropdown just invites them to try.
   if (pinned || locations.length <= 1) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
-        <ActiveIcon className="h-4 w-4 shrink-0 text-slate-400" />
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
+        <ActiveIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Working at
           </div>
-          <div className="truncate text-xs font-medium text-slate-700 dark:text-slate-300">
+          <div className="truncate text-xs font-medium text-foreground/85">
             {active?.name ?? "No location"}
           </div>
         </div>
@@ -55,7 +55,7 @@ export function LocationSwitcher({
 
   return (
     <div className="space-y-1">
-      <div className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      <div className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         Working at
       </div>
       <Select
@@ -77,7 +77,7 @@ export function LocationSwitcher({
             return (
               <SelectItem key={l.id} value={l.id}>
                 <span className="flex items-center gap-2">
-                  <Icon className="h-3.5 w-3.5 text-slate-400" />
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                   {l.name}
                 </span>
               </SelectItem>
