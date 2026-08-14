@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
-  Check,
   KeyRound,
   Pencil,
   ShieldCheck,
@@ -16,6 +14,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ActionNotice } from "@/components/ui/notice";
 import {
   Dialog,
   DialogContent,
@@ -178,11 +178,11 @@ export function StaffClient({
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
-            <Users className="h-6 w-6 text-emerald-600" />
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gradient">
+            <Users className="size-6 text-primary" />
             Staff &amp; Permissions
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="mt-1 text-sm text-muted-foreground">
             A cashier doesn&apos;t need an email address — give them a PIN and they can work
             the till on the shop&apos;s device.
           </p>
@@ -195,25 +195,10 @@ export function StaffClient({
         )}
       </div>
 
-      {notice && (
-        <div
-          className={
-            notice.ok
-              ? "flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-              : "flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
-          }
-        >
-          {notice.ok ? (
-            <Check className="h-4 w-4 shrink-0 mt-0.5" />
-          ) : (
-            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          )}
-          <span>{notice.message}</span>
-        </div>
-      )}
+      <ActionNotice result={notice} />
 
       {!canEdit && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+        <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
           Only an owner can add or change staff. You can see who&apos;s on the team.
         </div>
       )}
@@ -221,14 +206,14 @@ export function StaffClient({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Active staff
             </CardTitle>
-            <Users className="h-4 w-4 text-slate-400" />
+            <Users className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeCount}</div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               {staff.length - activeCount > 0
                 ? `${staff.length - activeCount} deactivated`
                 : "Everyone is active"}
@@ -238,14 +223,14 @@ export function StaffClient({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Owners
             </CardTitle>
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <ShieldCheck className="size-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{owners.length}</div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="mt-1 text-xs text-muted-foreground">
               {owners.length === 1 ? "The shop's only owner" : "Full access"}
             </p>
           </CardContent>
@@ -253,22 +238,22 @@ export function StaffClient({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Can unlock the till
             </CardTitle>
-            <KeyRound className="h-4 w-4 text-blue-600" />
+            <KeyRound className="size-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {staff.filter((s) => s.has_pin && s.is_active).length}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Have a PIN set</p>
+            <p className="mt-1 text-xs text-muted-foreground">Have a PIN set</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+        <CardHeader className="border-b border-border pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">Team</CardTitle>
             <Badge variant="outline" className="font-mono text-xs">
@@ -278,7 +263,7 @@ export function StaffClient({
         </CardHeader>
         <CardContent className="p-0">
           {staff.length === 0 ? (
-            <p className="p-12 text-center text-sm text-slate-500">Nobody on the team yet.</p>
+            <EmptyState icon={UserPlus} title="Nobody on the team yet" description="Add a cashier or manager and they will show up here." />
           ) : (
             <Table>
               <TableHeader>
@@ -300,20 +285,20 @@ export function StaffClient({
                     <TableRow key={member.id} data-inactive={!member.is_active}>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
-                          <div className="h-8 w-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300">
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
                             {(member.name ?? "?").charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                            <div className="truncate font-semibold text-foreground">
                               {member.name ?? "Unnamed"}
                               {isSelf && (
-                                <span className="ml-1.5 text-xs font-normal text-slate-400">
+                                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
                                   (you)
                                 </span>
                               )}
                             </div>
                             {member.email && (
-                              <div className="text-xs text-slate-500 truncate">{member.email}</div>
+                              <div className="truncate text-xs text-muted-foreground">{member.email}</div>
                             )}
                           </div>
                         </div>
@@ -325,7 +310,7 @@ export function StaffClient({
                         </Badge>
                       </TableCell>
 
-                      <TableCell className="text-sm text-slate-600 dark:text-slate-400">
+                      <TableCell className="text-sm text-muted-foreground">
                         {location ? location.name : "All locations"}
                       </TableCell>
 
@@ -342,7 +327,7 @@ export function StaffClient({
                             </Badge>
                           )}
                           {!member.login_enabled && !member.has_pin && (
-                            <span className="text-xs text-slate-400">No access yet</span>
+                            <span className="text-xs text-muted-foreground">No access yet</span>
                           )}
                           {!member.is_active && (
                             <Badge variant="destructive" className="text-xs">
@@ -462,7 +447,7 @@ export function StaffClient({
                   <SelectItem value="owner">Owner</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500">{ROLE_HELP[form.role]}</p>
+              <p className="text-xs text-muted-foreground">{ROLE_HELP[form.role]}</p>
             </div>
 
             <div className="space-y-2">
@@ -483,7 +468,7 @@ export function StaffClient({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Pinning someone to one location limits what stock they see and where their
                 sales land.
               </p>
@@ -498,7 +483,7 @@ export function StaffClient({
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 Recording an email here doesn&apos;t create a login on its own — they still
                 need to sign up with it.
               </p>
@@ -560,7 +545,7 @@ export function StaffClient({
             </div>
 
             {pin && pinConfirm && pin !== pinConfirm && (
-              <p className="text-xs text-rose-600">Those don&apos;t match.</p>
+              <p className="text-xs text-destructive">Those don&apos;t match.</p>
             )}
 
             <DialogFooter>

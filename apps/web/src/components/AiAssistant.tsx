@@ -47,16 +47,14 @@ export function AiAssistant() {
   }
 
   return (
-    <Card className="border-emerald-200 dark:border-emerald-900 bg-gradient-to-br from-emerald-50/50 via-white to-slate-50 dark:from-emerald-950/20 dark:via-slate-900 dark:to-slate-950 shadow-md">
+    <Card glow="md" className="border-primary/25 bg-linear-to-br from-primary-soft via-card to-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
-              <Sparkles className="h-4 w-4" />
+            <div className="flex size-7 items-center justify-center rounded-lg bg-linear-to-b from-primary-bright to-primary text-primary-foreground glow-btn">
+              <Sparkles className="size-4" />
             </div>
-            <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
-              AI Copilot Assistant
-            </CardTitle>
+            <CardTitle className="text-base font-bold">AI Copilot Assistant</CardTitle>
           </div>
           <Badge variant="default" className="text-[10px]">
             AI Powered
@@ -73,18 +71,10 @@ export function AiAssistant() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="flex-1 border-slate-200 focus-visible:ring-emerald-600"
+            className="flex-1"
           />
-          <Button
-            onClick={() => handleSearch()}
-            disabled={loading || !query.trim()}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
+          <Button onClick={() => handleSearch()} disabled={loading || !query.trim()}>
+            {loading ? <Loader2 className="animate-spin" /> : <Send />}
             <span>{loading ? "Analyzing" : "Ask"}</span>
           </Button>
         </div>
@@ -99,7 +89,7 @@ export function AiAssistant() {
                 setQuery(p);
                 handleSearch(p);
               }}
-              className="text-xs px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-950/50 text-slate-600 dark:text-slate-400 font-medium transition-all"
+              className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/45 hover:bg-primary-soft hover:text-primary"
             >
               {p}
             </button>
@@ -108,14 +98,12 @@ export function AiAssistant() {
 
         {/* Response Box */}
         {answer && (
-          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-1.5 animate-rise">
-            <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-              <Bot className="h-4 w-4" />
+          <div className="animate-rise space-y-1.5 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-primary">
+              <Bot className="size-4" />
               <span>AI Insights</span>
             </div>
-            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              {answer}
-            </p>
+            <p className="text-sm leading-relaxed text-foreground">{answer}</p>
           </div>
         )}
       </CardContent>
