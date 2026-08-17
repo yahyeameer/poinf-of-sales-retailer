@@ -275,28 +275,33 @@
   }
 }
 
-/* The centred dialog is held at -50%/-50%, so its scale has to be composed with
-   that translate — animating a bare `scale` would drop the panel to the
-   top-left corner for the duration of the transition. */
+/* The centred dialog is held at -50%/-50% by `-translate-x-1/2 -translate-y-1/2`.
+   In Tailwind v4 those utilities compile to the standalone `translate` property,
+   NOT to `transform` — so a keyframe that also says `transform: translate(-50%,
+   -50%)` does not replace the centring, it stacks on top of it, and the panel
+   lands a full width and height up and to the left of centre. Animate the
+   standalone `scale` property instead: `translate`, `rotate` and `scale` are
+   independent properties in v4 and compose without either one clobbering the
+   other. Nothing here may set `transform`. */
 @keyframes dialog-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.96);
+    scale: 0.96;
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    scale: 1;
   }
 }
 
 @keyframes dialog-out {
   from {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    scale: 1;
   }
   to {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.96);
+    scale: 0.96;
   }
 }
 

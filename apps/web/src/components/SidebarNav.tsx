@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { NavIcon } from "@/components/NavIcon";
 import { NAV_GROUPS, isRouteActive } from "@/components/nav-items";
 import { cn } from "@/lib/utils";
 
@@ -45,8 +46,12 @@ export function SidebarNav({
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group relative flex items-center gap-2.5 rounded-lg py-2 pl-4 pr-3 text-sm",
+                    // min-h-11 is the 44px thumb target. It costs nothing on a
+                    // desktop sidebar and is the difference between hitting
+                    // "Stock" and hitting "Analytics" on a phone.
+                    "group relative flex min-h-11 items-center gap-2.5 rounded-lg py-2 pl-4 pr-3 text-sm",
                     "transition-[background-color,color,box-shadow] duration-200",
+                    "active:scale-[0.98] active:bg-muted",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     // The lit rail. A flat tint reads as "hovered"; a glowing
                     // edge reads as "you are here", which is the question a
@@ -60,11 +65,14 @@ export function SidebarNav({
                         ]
                       : [
                           "text-muted-foreground hover:bg-muted hover:text-foreground",
-                          "before:bg-transparent",
+                          // A dim stub of the rail on hover, so the pointer
+                          // shows where the lit bar will land once you commit.
+                          "before:bg-transparent hover:before:bg-border",
                         ],
                   )}
                 >
-                  <Icon
+                  <NavIcon
+                    icon={Icon}
                     className={cn(
                       "h-4 w-4 shrink-0 transition-colors",
                       active ? "text-primary" : "text-muted-foreground/70 group-hover:text-foreground",
