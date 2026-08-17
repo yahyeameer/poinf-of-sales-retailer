@@ -435,3 +435,7 @@ create policy "managers set reorder points"
 
 -- Balances are otherwise written only by the ledger trigger, which runs as the
 -- table owner and is not subject to these policies.
+--
+-- That was the intent, but apply_stock_movement() is created above without
+-- SECURITY DEFINER, so it ran as the caller and every ledger write was refused.
+-- 20260817000100 makes it true.
