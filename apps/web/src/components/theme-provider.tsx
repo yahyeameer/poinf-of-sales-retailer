@@ -1,6 +1,14 @@
 "use client";
 
-import * as React from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { THEME_STORAGE_KEY, type ResolvedTheme, type Theme } from "@/lib/theme";
 
@@ -14,7 +22,7 @@ interface ThemeContextValue {
   toggle: () => void;
 }
 
-const ThemeContext = React.createContext<ThemeContextValue | null>(null);
+const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function systemTheme(): ResolvedTheme {
   if (typeof window === "undefined") return "light";
@@ -32,21 +40,21 @@ function readStored(): Theme {
   }
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children }: { children: ReactNode }) {
   // Deliberately "system" on the server and on first client render. The real
   // value is applied to <html> by the head script before paint, so the DOM is
   // already correct; starting from the stored value here instead would make the
   // server and client markup disagree and trip hydration.
-  const [theme, setThemeState] = React.useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = React.useState<ResolvedTheme>("light");
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
-  React.useEffect(() => {
+  useEffect(() => {
     const stored = readStored();
     setThemeState(stored);
     setResolvedTheme(stored === "system" ? systemTheme() : stored);
   }, []);
 
-  const apply = React.useCallback((next: ResolvedTheme) => {
+  const apply = useCallback((next: ResolvedTheme) => {
     const root = document.documentElement;
     root.classList.toggle("dark", next === "dark");
     // Makes native widgets (scrollbars, date pickers, form controls) follow the
@@ -55,7 +63,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setResolvedTheme(next);
   }, []);
 
-  const setTheme = React.useCallback(
+  const setTheme = useCallback(
     (next: Theme) => {
       setThemeState(next);
       try {
@@ -70,7 +78,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Only while following the OS. Once the user picks a side we stop listening,
   // otherwise their choice gets stomped when the OS flips at sunset.
-  React.useEffect(() => {
+  useEffect(() => {
     if (theme !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => apply(mq.matches ? "dark" : "light");
@@ -79,7 +87,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme, apply]);
 
   // Another tab changed the preference — follow it.
-  React.useEffect(() => {
+  useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== THEME_STORAGE_KEY) return;
       const next = readStored();
@@ -90,12 +98,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, [apply]);
 
-  const toggle = React.useCallback(
+  const toggle = useCallback(
     () => setTheme(resolvedTheme === "dark" ? "light" : "dark"),
     [resolvedTheme, setTheme],
   );
 
-  const value = React.useMemo(
+  const value = useMemo(
     () => ({ theme, resolvedTheme, setTheme, toggle }),
     [theme, resolvedTheme, setTheme, toggle],
   );
@@ -103,8 +111,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
+const dummyContext: ThemeContextValue = {
+  theme: "system",
+  resolvedTheme: "light",
+  setTheme: () => {},
+  toggle: () => {},
+};
+
 export function useTheme(): ThemeContextValue {
-  const ctx = React.useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used inside <ThemeProvider>");
-  return ctx;
+  const ctx = useContext(ThemeContext);
+  return ctx ?? dummyContext;
 }

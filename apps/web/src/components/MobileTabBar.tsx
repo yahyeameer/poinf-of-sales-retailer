@@ -109,7 +109,7 @@ function TabLink({
   pathname,
 }: {
   item: (typeof TAB_BAR_ITEMS)[number];
-  pathname: string;
+  pathname: string | null;
 }) {
   const active = isRouteActive(pathname, item.href);
   const Icon = item.icon;

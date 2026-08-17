@@ -91,6 +91,7 @@ export const TAB_BAR_ITEMS: NavItem[] = [
 export const TILL_ITEM: NavItem = { href: "/till", label: "Till", icon: ScanLine };
 
 /** "/" would otherwise prefix-match every route and light up permanently. */
-export function isRouteActive(pathname: string, href: string): boolean {
+export function isRouteActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
