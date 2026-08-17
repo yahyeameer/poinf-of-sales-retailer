@@ -355,6 +355,21 @@
     -webkit-text-size-adjust: 100%;
     /* Notched phones: the till's action bar sits on the bottom edge. */
     scroll-behavior: smooth;
+    /*
+     * Hold the scrollbar's space open even when there is nothing to scroll.
+     *
+     * Radix locks body scroll while a dialog is open. Without a reserved
+     * gutter the scrollbar vanishes at that moment, the viewport grows by its
+     * width, and the entire page — plus anything `fixed inset-x-0`, which is
+     * both bottom bars — slides sideways and then slides back on close. It
+     * looked like the dialog was flying in off-centre; it was the page moving
+     * underneath it.
+     *
+     * react-remove-scroll measures the gap it needs to compensate for. With
+     * the gutter reserved that measurement is zero, so it adds no padding of
+     * its own and there is nothing to double up.
+     */
+    scrollbar-gutter: stable;
   }
 
   :where(body) {

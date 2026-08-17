@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { LocalTime } from "@/components/LocalTime";
+
 import { Paper, PaperRow, PaperRule } from "./Paper";
 import { METHOD_LABEL, type Method } from "./types";
 
@@ -59,7 +61,7 @@ export function XReportDialog({
         <Paper printable className="max-h-[55vh] overflow-y-auto">
           <PaperRow
             label="Opened"
-            value={new Date(String(report.opened_at)).toLocaleString()}
+            value={<LocalTime value={String(report.opened_at)} />}
           />
           <PaperRow
             label="Float"

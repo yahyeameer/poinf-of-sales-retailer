@@ -58,6 +58,14 @@ export async function updateSession(request: NextRequest) {
 
   try {
     const supabase = createServerClient(supabaseUrl, supabaseKey, {
+      global: {
+        fetch: (input, init) => {
+          return fetch(input, {
+            ...init,
+            signal: init?.signal ?? AbortSignal.timeout(2000),
+          });
+        },
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();

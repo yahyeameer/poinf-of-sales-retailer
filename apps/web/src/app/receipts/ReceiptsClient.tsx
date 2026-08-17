@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMoney } from "@ai-pos/shared";
+import { formatDateTime, formatMoney } from "@ai-pos/shared";
 import { ReceiptText } from "lucide-react";
 
 import { DemoBanner } from "@/components/DemoBanner";
+import { useIsMounted } from "@/components/LocalTime";
 import type { ReceiptShop } from "@/components/Receipt";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +49,7 @@ export function ReceiptsClient({
   const [receipts] = useState<Receipt[]>(initialReceipts);
   const [dialog, setDialog] = useState<ReceiptsDialog>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  const mounted = useIsMounted();
 
   function submitRefund(lines: RefundLine[], reason: string, restock: boolean) {
     if (dialog?.name !== "refund") return;
@@ -79,10 +81,12 @@ export function ReceiptsClient({
     });
   }
 
+  // This ends up in an href, which the server renders too — so the date has to
+  // agree across hydration exactly as a rendered one does. Same gate as
+  // <LocalTime>: UTC until mounted, the shop's own clock thereafter.
   function whatsAppLink(r: Receipt) {
-    const text = `Receipt from ${shopName}\nRef: ${r.id}\nDate: ${new Date(
-      r.created_at,
-    ).toLocaleString()}\nTotal: ${formatMoney(
+    const when = formatDateTime(r.created_at, mounted ? undefined : "UTC");
+    const text = `Receipt from ${shopName}\nRef: ${r.id}\nDate: ${when}\nTotal: ${formatMoney(
       r.total_cents,
       currency,
     )}\nPayment: ${r.payment_method}\nThank you for shopping with us!`;

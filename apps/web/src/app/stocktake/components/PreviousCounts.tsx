@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 
 import type { StocktakeDoc } from "./types";
+import { LocalTime } from "@/components/LocalTime";
 
 /**
  * Counts already committed. Kept on the same screen as the sheet because the
@@ -52,7 +53,7 @@ export function PreviousCounts({ recent }: { recent: StocktakeDoc[] }) {
                 return (
                   <TableRow key={s.reference_id}>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {new Date(s.counted_at).toLocaleString()}
+                      <LocalTime value={s.counted_at} />
                     </TableCell>
                     <TableCell>{s.location_name}</TableCell>
                     <TableCell className="text-right tabular-nums">

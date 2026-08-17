@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { LocalTime } from "@/components/LocalTime";
 
 export interface Movement {
   id: string;
@@ -78,6 +79,25 @@ const REASON_LABELS: Record<string, string> = {
   void: "Voided sale",
   stocktake: "Stocktake",
 };
+
+/**
+ * PostgREST hands an embedded row back as an object or, when it decides the
+ * relationship is to-many, as an array of one. Both shapes turn up here.
+ */
+function movementProductName(m: Movement): string {
+  const name = Array.isArray(m.products) ? m.products[0]?.name : m.products?.name;
+  return name ?? "Unknown product";
+}
+
+/** Nothing on the shelf reads differently from merely running low. */
+function lowStockBadge(onHand: number) {
+  if (onHand <= 0) return <Badge variant="destructive">Out of stock</Badge>;
+  return (
+    <Badge variant="outline" className="border-warning/25 bg-warning/12 text-warning">
+      Reorder
+    </Badge>
+  );
+}
 
 export function StockClient({
   initialMovements,
@@ -183,43 +203,60 @@ export function StockClient({
               description="Every product at this location is above its reorder point."
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead className="text-right">On hand</TableHead>
-                  <TableHead className="text-right">Reorder at</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Phones: the reorder list is something you read walking the
+                  aisle, so it stacks rather than scrolling sideways. */}
+              <ul className="divide-y divide-border sm:hidden">
                 {lowStock.map((item) => (
-                  <TableRow key={`${item.product_id}-${item.location_name ?? ""}`}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{item.location_name ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {Number(item.stock_on_hand)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {Number(item.reorder_point)}
-                    </TableCell>
-                    <TableCell>
-                      {Number(item.stock_on_hand) <= 0 ? (
-                        <Badge variant="destructive">Out of stock</Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="border-warning/25 bg-warning/12 text-warning"
-                        >
-                          Reorder
-                        </Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                  <li
+                    key={`${item.product_id}-${item.location_name ?? ""}`}
+                    className="space-y-2 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 font-medium">{item.name}</p>
+                      {lowStockBadge(Number(item.stock_on_hand))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground tabular-nums">
+                        {Number(item.stock_on_hand)}
+                      </span>{" "}
+                      on hand · reorder at{" "}
+                      <span className="tabular-nums">{Number(item.reorder_point)}</span>
+                      {item.location_name ? ` · ${item.location_name}` : ""}
+                    </p>
+                  </li>
                 ))}
-              </TableBody>
-            </Table>
+              </ul>
+
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead className="text-right">On hand</TableHead>
+                      <TableHead className="text-right">Reorder at</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lowStock.map((item) => (
+                      <TableRow key={`${item.product_id}-${item.location_name ?? ""}`}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{item.location_name ?? "—"}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {Number(item.stock_on_hand)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {Number(item.reorder_point)}
+                        </TableCell>
+                        <TableCell>{lowStockBadge(Number(item.stock_on_hand))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -239,52 +276,85 @@ export function StockClient({
               description="Sales, restocks and corrections all land here as they happen."
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date / time</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Change</TableHead>
-                  <TableHead>Reason</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <ul className="divide-y divide-border sm:hidden">
                 {initialMovements.map((m) => {
-                  const prodName = Array.isArray(m.products)
-                    ? m.products[0]?.name
-                    : (m.products as { name?: string } | null)?.name ?? "Unknown product";
                   const delta = Number(m.delta);
                   return (
-                    <TableRow key={m.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                        {new Date(m.created_at).toLocaleString()}
-                      </TableCell>
-                      <TableCell>{prodName}</TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right font-semibold tabular-nums",
-                          delta > 0
-                            ? "text-success"
-                            : "text-destructive",
-                        )}
-                      >
-                        {delta > 0 ? `+${delta}` : delta}
-                      </TableCell>
-                      <TableCell>
-                        <span className="flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary" className="font-normal">
-                            {REASON_LABELS[m.reason] ?? m.reason}
-                          </Badge>
-                          {m.note && (
-                            <span className="text-xs text-muted-foreground">{m.note}</span>
+                    <li key={m.id} className="space-y-1.5 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 font-medium">{movementProductName(m)}</p>
+                        <p
+                          className={cn(
+                            "shrink-0 font-semibold tabular-nums",
+                            delta > 0 ? "text-success" : "text-destructive",
                           )}
+                        >
+                          {delta > 0 ? `+${delta}` : delta}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="font-normal">
+                          {REASON_LABELS[m.reason] ?? m.reason}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          <LocalTime value={m.created_at} />
                         </span>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+
+                      {m.note && <p className="text-xs text-muted-foreground">{m.note}</p>}
+                    </li>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </ul>
+
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date / time</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="text-right">Change</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {initialMovements.map((m) => {
+                      const delta = Number(m.delta);
+                      return (
+                        <TableRow key={m.id}>
+                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                            <LocalTime value={m.created_at} />
+                          </TableCell>
+                          <TableCell>{movementProductName(m)}</TableCell>
+                          <TableCell
+                            className={cn(
+                              "text-right font-semibold tabular-nums",
+                              delta > 0
+                                ? "text-success"
+                                : "text-destructive",
+                            )}
+                          >
+                            {delta > 0 ? `+${delta}` : delta}
+                          </TableCell>
+                          <TableCell>
+                            <span className="flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary" className="font-normal">
+                                {REASON_LABELS[m.reason] ?? m.reason}
+                              </Badge>
+                              {m.note && (
+                                <span className="text-xs text-muted-foreground">{m.note}</span>
+                              )}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

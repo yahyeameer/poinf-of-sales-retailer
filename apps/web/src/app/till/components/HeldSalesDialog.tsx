@@ -13,6 +13,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 
 import type { ParkedSale } from "./types";
+import { LocalTime } from "@/components/LocalTime";
 
 /**
  * Sales parked mid-transaction — a customer who went back for something, or a
@@ -57,7 +58,7 @@ export function HeldSalesDialog({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{p.label}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(p.created_at).toLocaleString()}
+                    <LocalTime value={p.created_at} />
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">

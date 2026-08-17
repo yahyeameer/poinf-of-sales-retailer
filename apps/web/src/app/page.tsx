@@ -1,4 +1,6 @@
 import { formatMoney } from "@ai-pos/shared";
+
+import { LocalTime } from "@/components/LocalTime";
 import { Shell } from "@/components/Shell";
 import { AiAssistant } from "@/components/AiAssistant";
 import { DemoBanner } from "@/components/DemoBanner";
@@ -177,7 +179,9 @@ export default async function DashboardPage() {
             </p>
           </div>
           <Badge variant="outline" className="w-fit text-xs px-3 py-1 font-mono">
-            {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+            {/* Server-rendered, so this was showing the container's date — which
+                in UTC is the wrong day for the shop either side of midnight. */}
+            <LocalTime value={Date.now()} format="long" />
           </Badge>
         </div>
 
