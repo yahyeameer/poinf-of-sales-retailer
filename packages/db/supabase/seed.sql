@@ -11,9 +11,21 @@
 set search_path = public, extensions;
 
 -- Fixed ids so fixtures and manual testing can rely on them.
-\set tenant_id  '11111111-1111-4111-8111-111111111111'
-\set owner_id   '22222222-2222-4222-8222-222222222222'
-\set cashier_id '33333333-3333-4333-8333-333333333333'
+--
+--   tenant   11111111-1111-4111-8111-111111111111
+--   owner    22222222-2222-4222-8222-222222222222
+--   cashier  33333333-3333-4333-8333-333333333333
+--   location 44444444-4444-4444-8444-444444444444
+--
+-- Written out in full below rather than held in psql \set variables. The
+-- Supabase CLI hands this file to Postgres as one batch instead of piping it
+-- through psql, and the server has no client-side variables, so `\set` and
+-- `'11111111-1111-4111-8111-111111111111'` are plain syntax errors there:
+--
+--   LegacyMigrationSeedError: syntax error at or near "\" (SQLSTATE 42601)
+--
+-- which fails `npm run db:start` and `npm run db:reset` after every migration
+-- has already applied - the setup path in the README, on any current CLI.
 
 begin;
 
@@ -34,12 +46,12 @@ insert into auth.users (
   phone_change, phone_change_token, reauthentication_token
 )
 values
-  ('00000000-0000-0000-0000-000000000000', :'owner_id', 'authenticated', 'authenticated',
+  ('00000000-0000-0000-0000-000000000000', '22222222-2222-4222-8222-222222222222', 'authenticated', 'authenticated',
    'owner@demo.shop', crypt('demo1234', gen_salt('bf')),
    now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{"name":"Amina (owner)"}',
    '', '', '', '', '', '', '', ''),
-  ('00000000-0000-0000-0000-000000000000', :'cashier_id', 'authenticated', 'authenticated',
+  ('00000000-0000-0000-0000-000000000000', '33333333-3333-4333-8333-333333333333', 'authenticated', 'authenticated',
    'cashier@demo.shop', crypt('demo1234', gen_salt('bf')),
    now(), now(), now(),
    '{"provider":"email","providers":["email"]}', '{"name":"Yusuf (cashier)"}',
@@ -47,25 +59,35 @@ values
 
 insert into auth.identities (provider_id, user_id, identity_data, provider, created_at, updated_at)
 values
-  (:'owner_id',   :'owner_id',
-   format('{"sub":"%s","email":"owner@demo.shop"}', :'owner_id')::jsonb,   'email', now(), now()),
-  (:'cashier_id', :'cashier_id',
-   format('{"sub":"%s","email":"cashier@demo.shop"}', :'cashier_id')::jsonb, 'email', now(), now());
+  ('22222222-2222-4222-8222-222222222222',   '22222222-2222-4222-8222-222222222222',
+   format('{"sub":"%s","email":"owner@demo.shop"}', '22222222-2222-4222-8222-222222222222')::jsonb,   'email', now(), now()),
+  ('33333333-3333-4333-8333-333333333333', '33333333-3333-4333-8333-333333333333',
+   format('{"sub":"%s","email":"cashier@demo.shop"}', '33333333-3333-4333-8333-333333333333')::jsonb, 'email', now(), now());
 
 -- ---------------------------------------------------------------------------
 -- The shop. 15% VAT, already inside the shelf price.
 -- ---------------------------------------------------------------------------
 
 insert into public.tenants (id, name, currency, tax_rate, tax_inclusive, plan, min_margin_pct)
-values (:'tenant_id', 'Demo Mini-Mart', 'USD', 0.15, true, 'pro', 12);
+values ('11111111-1111-4111-8111-111111111111', 'Demo Mini-Mart', 'USD', 0.15, true, 'pro', 12);
+
+-- The shop floor. provision_tenant() creates this for a real signup; the seed
+-- writes the tenant row directly, so it has to do the same by hand.
+--
+-- Not optional: stock_movements.location_id and sales.location_id are NOT NULL,
+-- and default_location_id() resolves through this row, so without it the very
+-- first opening-stock insert below fails.
+insert into public.locations (id, tenant_id, kind, name, code, is_default)
+values ('44444444-4444-4444-8444-444444444444',
+        '11111111-1111-4111-8111-111111111111', 'shop', 'Demo Mini-Mart', 'MAIN', true);
 
 -- handle_new_auth_user() already made these rows; attach them to the shop.
-update public.users set tenant_id = :'tenant_id', role = 'owner'   where id = :'owner_id';
-update public.users set tenant_id = :'tenant_id', role = 'cashier' where id = :'cashier_id';
+update public.users set tenant_id = '11111111-1111-4111-8111-111111111111', role = 'owner'   where id = '22222222-2222-4222-8222-222222222222';
+update public.users set tenant_id = '11111111-1111-4111-8111-111111111111', role = 'cashier' where id = '33333333-3333-4333-8333-333333333333';
 
 update public.users
 set pin_hash = crypt('1234', gen_salt('bf', 10))
-where tenant_id = :'tenant_id';
+where tenant_id = '11111111-1111-4111-8111-111111111111';
 
 commit;
 
@@ -76,9 +98,9 @@ commit;
 select set_config(
   'request.jwt.claims',
   json_build_object(
-    'sub',       :'owner_id',
+    'sub',       '22222222-2222-4222-8222-222222222222',
     'role',      'authenticated',
-    'tenant_id', :'tenant_id',
+    'tenant_id', '11111111-1111-4111-8111-111111111111',
     'shop_role', 'owner'
   )::text,
   false
@@ -86,17 +108,17 @@ select set_config(
 set role authenticated;
 
 insert into public.categories (tenant_id, name) values
-  (:'tenant_id', 'beverage'),
-  (:'tenant_id', 'snack'),
-  (:'tenant_id', 'staple'),
-  (:'tenant_id', 'personal care'),
-  (:'tenant_id', 'household');
+  ('11111111-1111-4111-8111-111111111111', 'beverage'),
+  ('11111111-1111-4111-8111-111111111111', 'snack'),
+  ('11111111-1111-4111-8111-111111111111', 'staple'),
+  ('11111111-1111-4111-8111-111111111111', 'personal care'),
+  ('11111111-1111-4111-8111-111111111111', 'household');
 
 insert into public.products
   (tenant_id, category_id, name, sku, barcode, price_cents, unit, reorder_point)
 select
-  :'tenant_id',
-  (select id from public.categories where tenant_id = :'tenant_id'::uuid and name = v.category),
+  '11111111-1111-4111-8111-111111111111',
+  (select id from public.categories where tenant_id = '11111111-1111-4111-8111-111111111111'::uuid and name = v.category),
   v.name, v.sku, v.barcode, v.price_cents, v.unit::public.product_unit, v.reorder_point
 from (values
   ('Coca-Cola 500ml',          'BEV-001', '5449000000996', 120, 'beverage',      'each', 24),
@@ -147,9 +169,10 @@ from (values
 -- ---------------------------------------------------------------------------
 
 insert into public.stock_movements
-  (tenant_id, product_id, delta, reason, unit_cost_cents, created_by, note)
+  (tenant_id, location_id, product_id, delta, reason, unit_cost_cents, created_by, note)
 select
-  :'tenant_id',
+  '11111111-1111-4111-8111-111111111111',
+  '44444444-4444-4444-8444-444444444444',
   p.id,
   -- Comfortably more than two weeks of trading will consume. The shop does not
   -- allow overselling, so a thin opening stock would make the seed itself fail.
@@ -157,10 +180,10 @@ select
   'restock',
   -- ~30% gross margin, jittered a little so the reports aren't suspiciously flat.
   greatest(1, round(p.price_cents * (0.62 + (random() * 0.12)))::integer),
-  :'owner_id',
+  '22222222-2222-4222-8222-222222222222',
   'Opening stock'
 from public.products p
-where p.tenant_id = :'tenant_id'::uuid;
+where p.tenant_id = '11111111-1111-4111-8111-111111111111'::uuid;
 
 -- ---------------------------------------------------------------------------
 -- Two weeks of trading.
@@ -176,6 +199,7 @@ declare
   v_sale    integer;
   v_sales_today integer;
   v_lines   jsonb;
+  v_subtotal integer;
   v_ts      timestamptz;
   v_method  public.payment_method;
 begin
@@ -214,11 +238,22 @@ begin
         else 'card'
       end::public.payment_method;
 
+      -- What the basket comes to before the discount, so the discount below
+      -- cannot swallow it whole. process_sale() clamps a discount to the
+      -- subtotal and then books a tender row for the resulting total, and
+      -- sale_payments.amount_cents is `check (amount_cents > 0)` - so a basket
+      -- worth 50c or less paired with the 50c discount aborts the whole seed.
+      -- The cheapest line here is a 25c sachet, so that is reachable, and with
+      -- setseed() it is reached the same way every run.
+      select coalesce(sum((e ->> 'quantity')::numeric * (e ->> 'unit_price_cents')::integer), 0)
+      into v_subtotal
+      from jsonb_array_elements(v_lines) as t(e);
+
       perform public.process_sale(
         p_client_id      => 'seed-' || v_day || '-' || v_sale || '-' || md5(random()::text),
         p_items          => v_lines,
         p_payment_method => v_method,
-        p_discount_cents => case when random() < 0.06 then 50 else 0 end,
+        p_discount_cents => case when random() < 0.06 and v_subtotal > 200 then 50 else 0 end,
         -- Trading hours 08:00–20:00, busiest around 17:00.
         p_created_at     => v_ts
                             + make_interval(hours  => 8 + floor(power(random(), 0.65) * 12)::integer)
@@ -229,15 +264,26 @@ begin
 end $$;
 
 -- A couple of dead-stock candidates: plenty on the shelf, nothing sold lately.
-insert into public.stock_movements (tenant_id, product_id, delta, reason, unit_cost_cents, created_by, note)
-select :'tenant_id', p.id, 40, 'restock', round(p.price_cents * 0.7)::integer, :'owner_id',
+insert into public.stock_movements (tenant_id, location_id, product_id, delta, reason, unit_cost_cents, created_by, note)
+select '11111111-1111-4111-8111-111111111111', '44444444-4444-4444-8444-444444444444', p.id, 40, 'restock', round(p.price_cents * 0.7)::integer, '22222222-2222-4222-8222-222222222222',
        'Overordered — do not sell down'
 from public.products p
-where p.tenant_id = :'tenant_id'::uuid
+where p.tenant_id = '11111111-1111-4111-8111-111111111111'::uuid
   and p.sku in ('PER-005', 'HOU-006');
 
 reset role;
-select set_config('request.jwt.claims', null, false);
+
+-- Cleared to an empty claim set, not to NULL. set_config(..., NULL, ...) leaves
+-- the GUC holding an empty string rather than unsetting it, and every policy
+-- helper here does `current_setting('request.jwt.claims', true)::jsonb` - which
+-- reads '' back as a string, not as absent, and dies on it:
+--
+--   22P02: invalid input syntax for type json
+--   DETAIL: The input string ended unexpectedly.
+--
+-- '{}' parses, has no claims in it, and so lands on exactly the "no claims"
+-- path the reset was reaching for.
+select set_config('request.jwt.claims', '{}', false);
 
 -- Cache and ledger must agree after all that. Returns 0 on a healthy seed.
 do $$
