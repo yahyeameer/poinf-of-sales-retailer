@@ -21,7 +21,7 @@ export async function createClient() {
 
   return createServerClient(url, key, {
     global: {
-      fetch: (input, init) => {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
         return fetch(input, {
           ...init,
           signal: init?.signal ?? AbortSignal.timeout(3000),
