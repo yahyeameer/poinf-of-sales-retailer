@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ActionNotice, Notice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -120,8 +120,7 @@ export function StockClient({
   const [pending, startTransition] = useTransition();
 
   const [showModal, setShowModal] = useState(false);
-  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
-
+  const toast = useToast();
   const [selectedProductId, setSelectedProductId] = useState(products[0]?.id ?? "");
   const [change, setChange] = useState("10");
   const [reason, setReason] = useState<AdjustmentReason>("restock");
@@ -133,7 +132,6 @@ export function StockClient({
     const delta = parseFloat(change);
     if (!selectedProductId || !Number.isFinite(delta)) return;
 
-    setNotice(null);
     startTransition(async () => {
       const cost = parseFloat(unitCost);
       const result = await recordStockAdjustment({
@@ -144,7 +142,7 @@ export function StockClient({
         note: note.trim() || null,
       });
 
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setShowModal(false);
         setNote("");
@@ -175,7 +173,6 @@ export function StockClient({
         {canEdit && (
           <Button
             onClick={() => {
-              setNotice(null);
               setShowModal(true);
             }}
             className="gap-2"
@@ -185,8 +182,6 @@ export function StockClient({
           </Button>
         )}
       </div>
-
-      {!showModal && <ActionNotice result={notice} />}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
@@ -453,8 +448,6 @@ export function StockClient({
                 onChange={(e) => setNote(e.target.value)}
               />
             </div>
-
-            {notice && !notice.ok && <Notice tone="error">{notice.message}</Notice>}
 
             <DialogFooter>
               <Button

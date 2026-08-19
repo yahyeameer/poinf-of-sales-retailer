@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ActionNotice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -83,8 +83,7 @@ export function StaffClient({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
-
+  const toast = useToast();
   const [editing, setEditing] = useState<StaffMember | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [pinFor, setPinFor] = useState<StaffMember | null>(null);
@@ -105,7 +104,6 @@ export function StaffClient({
     setIsNew(true);
     setEditing(null);
     setForm({ name: "", role: "cashier", locationId: ALL_LOCATIONS, email: "" });
-    setNotice(null);
   }
 
   function openEdit(member: StaffMember) {
@@ -117,7 +115,6 @@ export function StaffClient({
       locationId: member.location_id ?? ALL_LOCATIONS,
       email: member.email ?? "",
     });
-    setNotice(null);
   }
 
   function closeForm() {
@@ -135,7 +132,7 @@ export function StaffClient({
         locationId: form.locationId === ALL_LOCATIONS ? null : form.locationId,
         email: form.email.trim() || null,
       });
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         closeForm();
         router.refresh();
@@ -146,7 +143,7 @@ export function StaffClient({
   function submitPin(e: React.FormEvent) {
     e.preventDefault();
     if (pin !== pinConfirm) {
-      setNotice({ ok: false, message: "The two PINs don't match." });
+      toast({ ok: false, message: "The two PINs don't match." });
       return;
     }
     const target = pinFor;
@@ -154,7 +151,7 @@ export function StaffClient({
 
     startTransition(async () => {
       const result = await setStaffPin(target.id, pin);
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setPinFor(null);
         setPin("");
@@ -167,7 +164,7 @@ export function StaffClient({
   function run(fn: () => Promise<{ ok: boolean; message: string }>) {
     startTransition(async () => {
       const result = await fn();
-      setNotice(result);
+      toast(result);
       if (result.ok) router.refresh();
     });
   }
@@ -194,8 +191,6 @@ export function StaffClient({
           </Button>
         )}
       </div>
-
-      <ActionNotice result={notice} />
 
       {!canEdit && (
         <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
@@ -359,7 +354,6 @@ export function StaffClient({
                                 setPinFor(member);
                                 setPin("");
                                 setPinConfirm("");
-                                setNotice(null);
                               }}
                               className="gap-1.5"
                             >

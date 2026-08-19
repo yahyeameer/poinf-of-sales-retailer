@@ -7,7 +7,7 @@ import { MapPin, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ActionNotice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import { saveLocation, setLocationActive } from "@/app/warehouse-actions";
 
 import { LocationDialog } from "./components/LocationDialog";
@@ -16,7 +16,6 @@ import type {
   LocationDraft,
   LocationRow,
   LocationsDialog,
-  Notice,
 } from "./components/types";
 
 // Re-exported so page.tsx keeps importing its row type from here rather than
@@ -42,10 +41,8 @@ export function LocationsClient({
   const [pending, startTransition] = useTransition();
 
   const [dialog, setDialog] = useState<LocationsDialog>(null);
-  const [notice, setNotice] = useState<Notice>(null);
-
+  const toast = useToast();
   function save(draft: LocationDraft) {
-    setNotice(null);
     startTransition(async () => {
       const result = await saveLocation({
         id: draft.id,
@@ -56,7 +53,7 @@ export function LocationsClient({
         phone: draft.phone || null,
         isDefault: draft.isDefault,
       });
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setDialog(null);
         router.refresh();
@@ -65,10 +62,9 @@ export function LocationsClient({
   }
 
   function toggleActive(l: LocationRow) {
-    setNotice(null);
     startTransition(async () => {
       const result = await setLocationActive(l.id, !l.is_active);
-      setNotice(result);
+      toast(result);
       if (result.ok) router.refresh();
     });
   }
@@ -91,7 +87,6 @@ export function LocationsClient({
           <Button
             type="button"
             onClick={() => {
-              setNotice(null);
               setDialog({ name: "form", location: null });
             }}
           >
@@ -103,7 +98,6 @@ export function LocationsClient({
 
       {/* Held back while the form is open, because the dialog shows its own
           errors and two copies of the same message read as two problems. */}
-      {!dialog && <ActionNotice result={notice} />}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -121,7 +115,6 @@ export function LocationsClient({
             canEdit={canEdit}
             pending={pending}
             onEdit={(location) => {
-              setNotice(null);
               setDialog({ name: "form", location });
             }}
             onToggleActive={toggleActive}
@@ -133,7 +126,6 @@ export function LocationsClient({
         open={dialog?.name === "form"}
         location={dialog?.name === "form" ? dialog.location : null}
         pending={pending}
-        notice={notice}
         onOpenChange={(open) => !open && setDialog(null)}
         onSave={save}
       />

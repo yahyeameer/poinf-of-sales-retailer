@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Label } from "@/components/ui/label";
-import { ActionNotice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import {
   Table,
   TableBody,
@@ -68,7 +68,7 @@ export function CatalogClient({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "low" | "archived">("all");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
+  const toast = useToast();
 
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
@@ -93,7 +93,6 @@ export function CatalogClient({
     const priceValue = parseFloat(price);
     if (!name.trim() || !Number.isFinite(priceValue)) return;
 
-    setNotice(null);
     startTransition(async () => {
       const result = await createProduct({
         name,
@@ -103,7 +102,7 @@ export function CatalogClient({
         reorderPoint: parseInt(reorder, 10) || 5,
       });
 
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setName("");
         setBarcode("");
@@ -131,15 +130,13 @@ export function CatalogClient({
         </div>
         {canEdit && (
           <Button
-            onClick={() => { setNotice(null); setShowAddModal(true); }}
+            onClick={() => setShowAddModal(true)}
           >
             <Plus />
             <span>Add Product</span>
           </Button>
         )}
       </div>
-
-      {!showAddModal && <ActionNotice result={notice} />}
 
       {/* Controls Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">

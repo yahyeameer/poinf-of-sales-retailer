@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ActionNotice, Notice as NoticeBox } from "@/components/ui/notice";
+import { Notice as NoticeBox } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,7 @@ import type { ShopLocation } from "@/lib/tenant";
 
 import { RecentTransfers } from "./components/RecentTransfers";
 import { TransferLines } from "./components/TransferLines";
-import type { Draft, Notice, StockAtLocation, TransferDoc } from "./components/types";
+import type { Draft, StockAtLocation, TransferDoc } from "./components/types";
 
 // Re-exported so page.tsx keeps importing its row types from here rather than
 // reaching into ./components.
@@ -53,8 +54,7 @@ export function TransfersClient({
   const [toId, setToId] = useState(locations[1]?.id ?? "");
   const [note, setNote] = useState("");
   const [lines, setLines] = useState<Draft[]>([{ key: 0, productId: "", quantity: "" }]);
-  const [notice, setNotice] = useState<Notice>(null);
-
+  const toast = useToast();
   // Only products that actually have stock at the source can be moved, so the
   // dropdown is built from the source's shelf rather than the whole catalog.
   const available = useMemo(
@@ -75,7 +75,6 @@ export function TransfersClient({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setNotice(null);
     startTransition(async () => {
       const result = await submitTransfer({
         fromLocationId: fromId,
@@ -86,7 +85,7 @@ export function TransfersClient({
         })),
         note: note.trim() || null,
       });
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setLines([{ key: nextKey++, productId: "", quantity: "" }]);
         setNote("");
@@ -107,8 +106,6 @@ export function TransfersClient({
           business total never changes — only where the stock sits.
         </p>
       </div>
-
-      <ActionNotice result={notice} />
 
       <form onSubmit={handleSubmit}>
         <Card>

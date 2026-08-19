@@ -30,14 +30,12 @@ export function RefundDialog({
   receipt,
   currency,
   pending,
-  notice,
   onOpenChange,
   onRefund,
 }: {
   receipt: Receipt | null;
   currency: string;
   pending: boolean;
-  notice: NoticeResult;
   onOpenChange: (open: boolean) => void;
   onRefund: (lines: RefundLine[], reason: string, restock: boolean) => void;
 }) {
@@ -148,8 +146,6 @@ export function RefundDialog({
             {formatMoney(total, currency)}
           </strong>
         </div>
-
-        {notice && !notice.ok && <Notice tone="error">{notice.message}</Notice>}
 
         <DialogFooter>
           <Button

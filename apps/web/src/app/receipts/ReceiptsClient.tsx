@@ -10,13 +10,13 @@ import { useIsMounted } from "@/components/LocalTime";
 import type { ReceiptShop } from "@/components/Receipt";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ActionNotice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import { refundSale } from "@/app/till/actions";
 
 import { ReceiptsTable } from "./components/ReceiptsTable";
 import { ReceiptViewDialog } from "./components/ReceiptViewDialog";
 import { RefundDialog } from "./components/RefundDialog";
-import type { Notice, Receipt, ReceiptsDialog, RefundLine } from "./components/types";
+import type { Receipt, ReceiptsDialog, RefundLine } from "./components/types";
 
 // Re-exported so page.tsx can describe its own props without reaching into
 // ./components, which is this screen's private business.
@@ -48,14 +48,14 @@ export function ReceiptsClient({
   const [pending, startTransition] = useTransition();
   const [receipts] = useState<Receipt[]>(initialReceipts);
   const [dialog, setDialog] = useState<ReceiptsDialog>(null);
-  const [notice, setNotice] = useState<Notice>(null);
+  const toast = useToast();
   const mounted = useIsMounted();
 
   function submitRefund(lines: RefundLine[], reason: string, restock: boolean) {
     if (dialog?.name !== "refund") return;
 
     if (lines.length === 0) {
-      setNotice({ ok: false, message: "Pick at least one item to refund." });
+      toast({ ok: false, message: "Pick at least one item to refund." });
       return;
     }
 
@@ -73,7 +73,7 @@ export function ReceiptsClient({
         restock,
       });
 
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setDialog(null);
         router.refresh();
@@ -109,8 +109,6 @@ export function ReceiptsClient({
         </div>
       </div>
 
-      <ActionNotice result={notice} />
-
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Recent receipts</CardTitle>
@@ -123,7 +121,6 @@ export function ReceiptsClient({
             canRefund={canRefund}
             onView={(receipt) => setDialog({ name: "view", receipt })}
             onRefund={(receipt) => {
-              setNotice(null);
               setDialog({ name: "refund", receipt });
             }}
             whatsAppLink={whatsAppLink}
@@ -141,7 +138,6 @@ export function ReceiptsClient({
         receipt={dialog?.name === "refund" ? dialog.receipt : null}
         currency={currency}
         pending={pending}
-        notice={notice}
         onOpenChange={(open) => !open && setDialog(null)}
         onRefund={submitRefund}
       />

@@ -6,7 +6,7 @@ import { importProducts } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ActionNotice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import { FileSpreadsheet, Upload, ArrowRight, Table as TableIcon } from "lucide-react";
 
 interface ParsedRow {
@@ -30,7 +30,7 @@ export function ImportClient({ currency }: { currency: string }) {
 
   const [csvText, setCsvText] = useState(SAMPLE_CSV);
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
-  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
+  const toast = useToast();
   const [done, setDone] = useState(false);
 
   function parseCSV() {
@@ -56,7 +56,6 @@ export function ImportClient({ currency }: { currency: string }) {
     });
 
     setParsedRows(rows);
-    setNotice(null);
     setDone(false);
   }
 
@@ -64,7 +63,6 @@ export function ImportClient({ currency }: { currency: string }) {
     const valid = parsedRows.filter((r) => r.valid);
     if (valid.length === 0) return;
 
-    setNotice(null);
     startTransition(async () => {
       const result = await importProducts(
         valid.map((r) => ({
@@ -75,7 +73,7 @@ export function ImportClient({ currency }: { currency: string }) {
         })),
       );
 
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setDone(true);
         router.refresh();
@@ -96,10 +94,6 @@ export function ImportClient({ currency }: { currency: string }) {
           Import product inventory in bulk from standard CSV spreadsheet files.
         </p>
       </div>
-
-      {notice && (
-        <ActionNotice result={notice} />
-      )}
 
       {/* Step 1 Card */}
       <Card>

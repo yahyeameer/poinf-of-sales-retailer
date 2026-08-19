@@ -1,7 +1,9 @@
+import { AccessGate } from "@/components/AccessGate";
 import { Shell } from "@/components/Shell";
+import { canAccessRoute } from "@/components/nav-items";
 import { createClient } from "@/lib/supabase/server";
 import { getShopBranding } from "@/lib/shop";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, navAccess } from "@/lib/tenant";
 import { ReceiptsClient } from "./ReceiptsClient";
 import type { ReceiptShop } from "@/components/Receipt";
 
@@ -69,6 +71,14 @@ export default async function ReceiptsPage() {
           canRefund={false}
           demoReason="You're not signed in, so this is a sample receipt."
         />
+      </Shell>
+    );
+  }
+
+  if (!canAccessRoute("/receipts", navAccess(ctx))) {
+    return (
+      <Shell shopName={ctx.shopName}>
+        <AccessGate href="/receipts" access={navAccess(ctx)} />
       </Shell>
     );
   }
