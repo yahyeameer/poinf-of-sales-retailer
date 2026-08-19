@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   formatMoney,
+  formatTime,
   computeTotals,
   addScan,
   setQuantity,
@@ -232,7 +233,7 @@ export function TillClient({
       onHold={() =>
         runAction(async () => {
           const r = await parkSale(
-            `${lines.length} item${lines.length === 1 ? "" : "s"} · ${new Date().toLocaleTimeString()}`,
+            `${lines.length} item${lines.length === 1 ? "" : "s"} · ${formatTime(new Date())}`,
             lines,
           );
           if (r.ok) {

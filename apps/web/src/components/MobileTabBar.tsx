@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
+import { NavIcon } from "@/components/NavIcon";
 import { SidebarNav } from "@/components/SidebarNav";
 import { TAB_BAR_ITEMS, TILL_ITEM, isRouteActive } from "@/components/nav-items";
 import {
@@ -61,7 +62,7 @@ export function MobileTabBar({ isManager }: { isManager: boolean }) {
                 tillActive && "shadow-[var(--glow-btn-hover)]",
               )}
             >
-              <TillIcon className="size-5" />
+              <NavIcon icon={TillIcon} className="size-5" />
               <span className="text-[10px] font-bold leading-none">{TILL_ITEM.label}</span>
             </Link>
           </div>
@@ -76,8 +77,9 @@ export function MobileTabBar({ isManager }: { isManager: boolean }) {
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-muted-foreground",
-              "transition-colors hover:text-foreground",
+              "flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2",
+              "text-muted-foreground transition-colors active:scale-95 active:bg-muted",
+              "hover:text-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               moreOpen && "text-primary",
             )}
@@ -109,7 +111,7 @@ function TabLink({
   pathname,
 }: {
   item: (typeof TAB_BAR_ITEMS)[number];
-  pathname: string;
+  pathname: string | null;
 }) {
   const active = isRouteActive(pathname, item.href);
   const Icon = item.icon;
@@ -119,12 +121,18 @@ function TabLink({
       href={item.href as never}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex flex-col items-center gap-1 rounded-lg px-1 py-2 transition-colors",
+        // 44px minimum, and the press feedback matters more here than on
+        // desktop: a thumb covers the icon it just hit.
+        "flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2",
+        "transition-colors active:scale-95 active:bg-muted",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active ? "text-primary" : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <Icon className={cn("size-5", active && "drop-shadow-[0_0_6px_rgb(var(--glow-rgb)/0.7)]")} />
+      <NavIcon
+        icon={Icon}
+        className={cn("size-5", active && "drop-shadow-[0_0_6px_rgb(var(--glow-rgb)/0.7)]")}
+      />
       <span className={cn("text-[10px] leading-none", active ? "font-bold" : "font-medium")}>
         {item.label}
       </span>

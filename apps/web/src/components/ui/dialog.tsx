@@ -36,7 +36,13 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4",
+        // The sidebar is a fixed 16rem strip on the left at lg (Shell.tsx:
+        // `main` is `lg:pl-64`). Centring on the whole viewport therefore lands
+        // the panel half a sidebar to the left of the content it belongs to —
+        // it reads as popping out toward the sidebar. Nudge the centre right by
+        // half the sidebar so it sits in the middle of the working area. Below
+        // lg the sidebar is hidden and plain `left-1/2` is already correct.
+        "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 lg:left-[calc(50%+8rem)]",
         "rounded-xl border border-border bg-popover p-6 text-popover-foreground glow-lg lit-edge",
         // A tall form on a short laptop screen must not push its own submit
         // button off the bottom of the viewport.

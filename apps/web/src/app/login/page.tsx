@@ -35,6 +35,41 @@ function redirectTarget(): string {
   return next;
 }
 
+/**
+ * Turn a sign-in failure into something that names the actual cause.
+ *
+ * This used to answer any error whose message merely contained the substring
+ * "fetch" with "Local Supabase Docker container is not running", regardless of
+ * what the app was pointed at — and threw the real message away on the way
+ * past. Against a hosted project that names a cause which cannot apply; and
+ * when it *was* a stopped container, it still never said which host it had
+ * tried, which is the one detail that tells you whether the URL you think you
+ * configured is the URL the bundle actually holds.
+ *
+ * A transport failure is the only case where the backend's identity is the
+ * useful information, so it is the only branch that mentions it.
+ */
+function describeAuthFailure(err: unknown, configuredUrl?: string): string {
+  const message =
+    (err as { message?: string } | null)?.message ?? String(err ?? "Unknown error");
+
+  // supabase-js surfaces every transport failure as "Failed to fetch"; anything
+  // else reached the server and came back with a real answer worth showing.
+  if (!message.toLowerCase().includes("failed to fetch")) return message;
+
+  let host = configuredUrl ?? "";
+  try {
+    host = new URL(configuredUrl ?? "").host;
+  } catch {
+    /* Keep whatever was configured — a malformed URL is itself the answer. */
+  }
+
+  const isLocal = /^(127\.0\.0\.1|localhost|\[::1\])(:|$)/.test(host);
+  return isLocal
+    ? `Couldn't reach Supabase at ${host}. The local stack isn't running — start it with "npm run db:start", or use Demo Mode below.`
+    : `Couldn't reach Supabase at ${host || "the configured URL"}. Check your connection, or use Demo Mode below.`;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("owner@demo.shop");
@@ -59,11 +94,7 @@ export default function LoginPage() {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
-        if (signInError.message === "Failed to fetch" || signInError.message.includes("fetch")) {
-          setError("Local Supabase Docker container is not running. Click 'Explore Demo Mode' below to view the app without database backend.");
-        } else {
-          setError(signInError.message);
-        }
+        setError(describeAuthFailure(signInError, supabaseUrl));
         setPending(false);
         return;
       }
@@ -71,11 +102,7 @@ export default function LoginPage() {
       router.push(redirectTarget() as any);
       router.refresh();
     } catch (err: any) {
-      if (err?.message?.includes("Failed to fetch") || err?.toString()?.includes("Failed to fetch")) {
-        setError("Local Supabase Docker container is not running. Click 'Explore Demo Mode' below to test the app with mock data.");
-      } else {
-        setError(err?.message || "An unexpected error occurred during authentication.");
-      }
+      setError(describeAuthFailure(err, process.env.NEXT_PUBLIC_SUPABASE_URL));
       setPending(false);
     }
   }

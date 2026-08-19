@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 
 import type { TransferDoc } from "./types";
+import { LocalTime } from "@/components/LocalTime";
 
 /**
  * Transfers already made, reassembled from the ledger — there is no transfers
@@ -59,7 +60,7 @@ export function RecentTransfers({ recent }: { recent: TransferDoc[] }) {
                 return (
                   <TableRow key={t.reference_id}>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {new Date(t.moved_at).toLocaleString()}
+                      <LocalTime value={t.moved_at} />
                     </TableCell>
                     <TableCell>{t.from_location ?? "—"}</TableCell>
                     <TableCell>{t.to_location ?? "—"}</TableCell>

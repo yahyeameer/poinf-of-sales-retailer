@@ -20,21 +20,28 @@ export async function createClient() {
   }
 
   return createServerClient(url, key, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: any[]) {
-          try {
-            for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
-            }
-          } catch {
-            // Called from a Server Component, where cookies are read-only.
-            // The middleware refreshes the session, so this is safe to ignore.
-          }
-        },
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        return fetch(input, {
+          ...init,
+          signal: init?.signal ?? AbortSignal.timeout(3000),
+        });
       },
     },
-  );
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet: any[]) {
+        try {
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, options);
+          }
+        } catch {
+          // Called from a Server Component, where cookies are read-only.
+          // The middleware refreshes the session, so this is safe to ignore.
+        }
+      },
+    },
+  });
 }

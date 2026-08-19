@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMoney } from "@ai-pos/shared";
+import { LocalTime } from "@/components/LocalTime";
 
 export interface ReceiptShop {
   name: string;
@@ -151,7 +152,7 @@ export function Receipt({ shop, sale }: { shop: ReceiptShop; sale: ReceiptSale }
       <div style={{ marginTop: 10, fontSize: narrow ? 10 : 11, color: "#444" }}>
         <div>Payment: {sale.paymentMethod.replace(/_/g, " ").toUpperCase()}</div>
         <div>Ref: {sale.ref}</div>
-        <div>{new Date(sale.createdAt).toLocaleString()}</div>
+        <div><LocalTime value={sale.createdAt} /></div>
         {sale.cashierName && <div>Served by: {sale.cashierName}</div>}
         {sale.locationName && <div>{sale.locationName}</div>}
       </div>

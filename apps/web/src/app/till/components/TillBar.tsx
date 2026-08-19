@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatMoney } from "@ai-pos/shared";
 import { ArrowLeft, Banknote, FileText, LogOut } from "lucide-react";
 
+import { LocalTime } from "@/components/LocalTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -34,11 +35,6 @@ export function TillBar({
   onXReport: () => void;
   onCloseShift: () => void;
 }) {
-  const openedAt = new Date(shift.opened_at).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 glow-sm lit-edge relative">
       <Button asChild variant="ghost" size="icon" className="lg:hidden" aria-label="Leave the till">
@@ -55,7 +51,8 @@ export function TillBar({
           <span className="truncate text-sm font-semibold">{locationName}</span>
         </div>
         <p className="mt-0.5 truncate text-xs text-muted-foreground tabular-nums">
-          since {openedAt} · float {formatMoney(shift.opening_float_cents, currency)} ·{" "}
+          since <LocalTime value={shift.opened_at} format="time" /> · float{" "}
+          {formatMoney(shift.opening_float_cents, currency)} ·{" "}
           {cashierName}
         </p>
       </div>

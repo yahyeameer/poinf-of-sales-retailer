@@ -1,12 +1,20 @@
+import { redirect } from "next/navigation";
 import { formatMoney } from "@ai-pos/shared";
+
+import { LocalTime } from "@/components/LocalTime";
 import { Shell } from "@/components/Shell";
 import { AiAssistant } from "@/components/AiAssistant";
 import { DemoBanner } from "@/components/DemoBanner";
+import { dashboardHref } from "@/components/nav-items";
 import { createClient } from "@/lib/supabase/server";
+import { getTenantContext } from "@/lib/tenant";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Notice } from "@/components/ui/notice";
+import { RevenueTrend } from "@/components/charts/RevenueTrend";
+import { PaymentMix } from "@/components/charts/PaymentMix";
+import { TopProducts } from "@/components/charts/TopProducts";
 import { 
   TrendingUp, 
   ShoppingCart, 
@@ -33,6 +41,15 @@ function percentChange(current: number, previous: number): string {
 }
 
 export default async function DashboardPage() {
+  // Warehouse staff get their own dashboard. Redirecting rather than gating,
+  // because "/" is where every stale bookmark and every post-login bounce lands
+  // and there is a real page for them to be on. Owners are unpinned and stay.
+  const ctx = await getTenantContext();
+  if (ctx) {
+    const home = dashboardHref(ctx.locationKind);
+    if (home !== "/") redirect(home);
+  }
+
   let shopName = "Demo Retail Shop";
   let userName = "Owner";
   let userRole = "owner";
@@ -163,6 +180,18 @@ export default async function DashboardPage() {
     { cash: 0, mobile: 0, card: 0 }
   );
 
+  // A contiguous oldest→newest week for the trend chart, zero-filled so a day
+  // with no sales is a gap in the line, not a missing column.
+  const trend = Array.from({ length: 7 }, (_, k) => {
+    const day = isoDay(6 - k);
+    const row = rows.find((r) => r.day === day);
+    return {
+      day,
+      revenue_cents: Number(row?.revenue_cents ?? 0),
+      transactions: Number(row?.transactions ?? 0),
+    };
+  });
+
   return (
     <Shell shopName={shopName}>
       <div className="max-w-7xl mx-auto space-y-8">
@@ -177,7 +206,9 @@ export default async function DashboardPage() {
             </p>
           </div>
           <Badge variant="outline" className="w-fit text-xs px-3 py-1 font-mono">
-            {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+            {/* Server-rendered, so this was showing the container's date — which
+                in UTC is the wrong day for the shop either side of midnight. */}
+            <LocalTime value={Date.now()} format="long" />
           </Badge>
         </div>
 
@@ -279,6 +310,39 @@ export default async function DashboardPage() {
           </Card>
         </div>
 
+        {/* Charts row: the week at a glance. Trend leads (2/3), tender mix rides
+            alongside (1/3); both read off data already fetched above. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader className="border-b border-border pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Sales this week</CardTitle>
+                <Badge variant="secondary">{formatMoney(weekRevenue, currency)} total</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5">
+              <RevenueTrend data={trend} currency={currency} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Payment mix</CardTitle>
+                <Badge variant="secondary">Last 7 days</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5">
+              <PaymentMix
+                cash={cashSplit.cash}
+                mobile={cashSplit.mobile}
+                card={cashSplit.card}
+                currency={currency}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Panels Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Panel 1: Top Movers */}
@@ -293,22 +357,7 @@ export default async function DashboardPage() {
               {movers.length === 0 ? (
                 <EmptyState icon={ShoppingCart} title="No sales in the last week" description="Best sellers appear here once the till starts taking money." />
               ) : (
-                <div className="divide-y divide-border">
-                  {movers.map((m, i) => (
-                    <div key={m.name} className="flex items-center justify-between p-4 transition-colors hover:bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 text-center text-xs font-bold text-muted-foreground">#{i + 1}</span>
-                        <div>
-                          <div className="text-sm font-semibold text-foreground">{m.name}</div>
-                          <div className="text-xs text-muted-foreground">{m.units} units sold</div>
-                        </div>
-                      </div>
-                      <div className="text-sm font-semibold text-primary">
-                        {formatMoney(m.revenue, currency)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <TopProducts data={movers} currency={currency} />
               )}
             </CardContent>
           </Card>

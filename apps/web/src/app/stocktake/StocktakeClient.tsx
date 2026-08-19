@@ -4,14 +4,14 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 
-import { ActionNotice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import { submitStocktake } from "@/app/warehouse-actions";
 
 import { CommitPanel } from "./components/CommitPanel";
 import { CountSheet } from "./components/CountSheet";
 import { PreviousCounts } from "./components/PreviousCounts";
 import { StocktakeSummary } from "./components/StocktakeSummary";
-import type { CountLine, CountSummary, Notice, StocktakeDoc } from "./components/types";
+import type { CountLine, CountSummary, StocktakeDoc } from "./components/types";
 
 // Re-exported so page.tsx keeps importing its row types from here rather than
 // reaching into ./components.
@@ -42,8 +42,7 @@ export function StocktakeClient({
   const [pending, startTransition] = useTransition();
 
   const [counts, setCounts] = useState<Record<string, string>>({});
-  const [notice, setNotice] = useState<Notice>(null);
-
+  const toast = useToast();
   // Only lines someone actually typed a number into count. A blank row means
   // "not counted", which is different from counting zero — and conflating the
   // two would write off every product the counter hasn't reached yet.
@@ -74,14 +73,13 @@ export function StocktakeClient({
   }, [entered]);
 
   function commit(note: string) {
-    setNotice(null);
     startTransition(async () => {
       const result = await submitStocktake({
         locationId,
         counts: entered.map((x) => ({ productId: x.line.product_id, counted: x.counted })),
         note: note || null,
       });
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setCounts({});
         router.refresh();
@@ -102,8 +100,6 @@ export function StocktakeClient({
           Only the difference is written to the ledger.
         </p>
       </div>
-
-      <ActionNotice result={notice} />
 
       <StocktakeSummary
         summary={summary}

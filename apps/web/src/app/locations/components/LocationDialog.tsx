@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Notice } from "@/components/ui/notice";
 import {
   Select,
   SelectContent,
@@ -57,7 +56,6 @@ export function LocationDialog({
   open,
   location,
   pending,
-  notice,
   onOpenChange,
   onSave,
 }: {
@@ -65,7 +63,6 @@ export function LocationDialog({
   /** The row being edited, or null when adding. */
   location: LocationRow | null;
   pending: boolean;
-  notice: NoticeResult;
   onOpenChange: (open: boolean) => void;
   onSave: (draft: LocationDraft) => void;
 }) {
@@ -178,8 +175,6 @@ export function LocationDialog({
               can be the default.
             </p>
           </div>
-
-          {notice && !notice.ok && <Notice tone="error">{notice.message}</Notice>}
 
           <DialogFooter>
             <Button

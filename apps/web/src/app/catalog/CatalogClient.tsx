@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Label } from "@/components/ui/label";
-import { ActionNotice } from "@/components/ui/notice";
+import { useToast } from "@/components/ui/toast";
 import {
   Table,
   TableBody,
@@ -39,6 +39,18 @@ export interface Product {
   is_active: boolean;
 }
 
+/**
+ * Archived beats low stock: a product nobody is selling any more is not a
+ * restocking problem. Shared so the card list and the table cannot drift apart
+ * on what counts as low.
+ */
+function statusBadge(p: Product) {
+  if (!p.is_active) return <Badge variant="destructive">Archived</Badge>;
+  if (Number(p.stock_on_hand) <= Number(p.reorder_point))
+    return <Badge variant="warning">Low Stock</Badge>;
+  return <Badge variant="default">Active</Badge>;
+}
+
 export function CatalogClient({
   initialProducts,
   currency,
@@ -56,7 +68,7 @@ export function CatalogClient({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "low" | "archived">("all");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(null);
+  const toast = useToast();
 
   const [name, setName] = useState("");
   const [barcode, setBarcode] = useState("");
@@ -81,7 +93,6 @@ export function CatalogClient({
     const priceValue = parseFloat(price);
     if (!name.trim() || !Number.isFinite(priceValue)) return;
 
-    setNotice(null);
     startTransition(async () => {
       const result = await createProduct({
         name,
@@ -91,7 +102,7 @@ export function CatalogClient({
         reorderPoint: parseInt(reorder, 10) || 5,
       });
 
-      setNotice(result);
+      toast(result);
       if (result.ok) {
         setName("");
         setBarcode("");
@@ -119,15 +130,13 @@ export function CatalogClient({
         </div>
         {canEdit && (
           <Button
-            onClick={() => { setNotice(null); setShowAddModal(true); }}
+            onClick={() => setShowAddModal(true)}
           >
             <Plus />
             <span>Add Product</span>
           </Button>
         )}
       </div>
-
-      {!showAddModal && <ActionNotice result={notice} />}
 
       {/* Controls Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
@@ -181,53 +190,84 @@ export function CatalogClient({
               description="Nothing matches that search and filter. Clear them to see the whole catalog."
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Barcode</TableHead>
-                  <TableHead className="text-right">Selling Price</TableHead>
-                  <TableHead className="text-right">Stock On Hand</TableHead>
-                  <TableHead className="text-right">Reorder Point</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                  {filteredProducts.map((p) => (
-                  <TableRow key={p.id} data-inactive={p.is_active ? undefined : "true"}>
-                    <TableCell className="font-semibold text-foreground">{p.name}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {p.barcode ? (
-                        <span className="flex items-center gap-1.5">
+            <>
+              {/* Phones: one card per product. Six columns will not fit, and the
+                  three that matter at the shelf are name, price and how many
+                  are left. */}
+              <ul className="divide-y divide-border sm:hidden">
+                {filteredProducts.map((p) => (
+                  <li
+                    key={p.id}
+                    className="space-y-2 p-4"
+                    data-inactive={p.is_active ? undefined : "true"}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 font-semibold text-foreground">{p.name}</p>
+                      <p className="shrink-0 font-semibold tabular-nums text-primary">
+                        {formatMoney(p.price_cents, currency)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground tabular-nums">
+                        {Number(p.stock_on_hand)} on hand
+                      </span>
+                      <span className="tabular-nums">reorder at {Number(p.reorder_point)}</span>
+                      {p.barcode && (
+                        <span className="flex items-center gap-1.5 font-mono">
                           <Barcode className="size-3.5" />
                           {p.barcode}
                         </span>
-                      ) : (
-                        "—"
                       )}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-primary">
-                      {formatMoney(p.price_cents, currency)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">
-                      {Number(p.stock_on_hand)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {Number(p.reorder_point)}
-                    </TableCell>
-                    <TableCell>
-                      {!p.is_active ? (
-                        <Badge variant="destructive">Archived</Badge>
-                      ) : Number(p.stock_on_hand) <= Number(p.reorder_point) ? (
-                        <Badge variant="warning">Low Stock</Badge>
-                      ) : (
-                        <Badge variant="default">Active</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
+                    </div>
+
+                    <div>{statusBadge(p)}</div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product Name</TableHead>
+                      <TableHead>Barcode</TableHead>
+                      <TableHead className="text-right">Selling Price</TableHead>
+                      <TableHead className="text-right">Stock On Hand</TableHead>
+                      <TableHead className="text-right">Reorder Point</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {filteredProducts.map((p) => (
+                      <TableRow key={p.id} data-inactive={p.is_active ? undefined : "true"}>
+                        <TableCell className="font-semibold text-foreground">{p.name}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {p.barcode ? (
+                            <span className="flex items-center gap-1.5">
+                              <Barcode className="size-3.5" />
+                              {p.barcode}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums text-primary">
+                          {formatMoney(p.price_cents, currency)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {Number(p.stock_on_hand)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {Number(p.reorder_point)}
+                        </TableCell>
+                        <TableCell>{statusBadge(p)}</TableCell>
+                      </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
