@@ -1,7 +1,9 @@
 import { formatMoney } from "@ai-pos/shared";
 import { CheckCircle2, TrendingUp } from "lucide-react";
 
+import { AccessGate } from "@/components/AccessGate";
 import { Shell } from "@/components/Shell";
+import { canAccessRoute } from "@/components/nav-items";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, navAccess } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,17 @@ export default async function WeeklyReportPage() {
       <Shell shopName="Demo Retail Shop">
         <DemoBanner reason="You're not signed in, so there's no week to report on." />
         <h1 className="text-2xl font-bold tracking-tight text-gradient">Weekly Store Digest</h1>
+      </Shell>
+    );
+  }
+
+  // The digest is entirely takings, baskets and movers. None of it exists for
+  // someone pinned to a warehouse, where RLS scopes sales away.
+  const access = navAccess(ctx);
+  if (!canAccessRoute("/reports/weekly", access)) {
+    return (
+      <Shell shopName={ctx.shopName}>
+        <AccessGate href="/reports/weekly" access={access} />
       </Shell>
     );
   }
