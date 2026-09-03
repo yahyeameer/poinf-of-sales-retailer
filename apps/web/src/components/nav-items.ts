@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   Barcode,
   BarChart3,
+  ClipboardList as ClipboardListIcon,
   Building2,
   CalendarRange,
   ClipboardCheck,
@@ -12,6 +13,7 @@ import {
   ReceiptText,
   ScanLine,
   Settings,
+  Truck,
   Upload,
   Users,
   Warehouse,
@@ -79,6 +81,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/catalog", label: "Catalog", icon: Package },
       { href: "/stock", label: "Stock Ledger", icon: ClipboardList },
       { href: "/analytics", label: "Analytics", icon: BarChart3, sellingFloor: true },
+    ],
+  },
+  {
+    title: "Buying",
+    items: [
+      { href: "/suppliers", label: "Suppliers", icon: Truck, managerOnly: true },
+      { href: "/purchase-orders", label: "Purchase Orders", icon: ClipboardListIcon, managerOnly: true },
     ],
   },
   {
