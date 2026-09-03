@@ -49,6 +49,7 @@ interface SaleItemRow {
 
 interface SaleRow {
   id: string;
+  cashier_id: string | null;
   created_at: string;
   payment_method: string;
   total_cents: number;
@@ -69,6 +70,7 @@ export default async function ReceiptsPage() {
           shopName="Demo Retail Shop"
           shop={DEMO_SHOP}
           canRefund={false}
+          canVoidAny={false}
           demoReason="You're not signed in, so this is a sample receipt."
         />
       </Shell>
@@ -92,7 +94,7 @@ export default async function ReceiptsPage() {
   const { data: sales, error } = await supabase
     .from("sales")
     .select(
-      "id, created_at, payment_method, total_cents, status, kind, original_sale_id, " +
+      "id, cashier_id, created_at, payment_method, total_cents, status, kind, original_sale_id, " +
         "sale_items(id, name_at_sale, quantity, unit_price_cents)",
     )
     .order("created_at", { ascending: false })
@@ -134,6 +136,10 @@ export default async function ReceiptsPage() {
     voided: sale.status === "voided",
     isRefund: sale.kind === "refund",
     refundedUnits: refundedByOriginal.get(sale.id) ?? 0,
+    // void_sale() lets a cashier strike their own sale for five minutes. The
+    // window itself is decided in the browser, where the clock is the one the
+    // cashier is looking at; whose sale it is can only be decided here.
+    isOwnSale: sale.cashier_id === ctx.userId,
     items: (sale.sale_items ?? []).map((item) => ({
       saleItemId: item.id,
       name: item.name_at_sale,
@@ -150,6 +156,9 @@ export default async function ReceiptsPage() {
         shopName={ctx.shopName}
         shop={branding ? { ...branding } : DEMO_SHOP}
         canRefund={ctx.role === "owner" || ctx.role === "manager"}
+        // Owners and managers may void any of the day's sales; a cashier gets
+        // their own for five minutes, which the table works out per row.
+        canVoidAny={ctx.role === "owner" || ctx.role === "manager"}
         demoReason={error ? `Couldn't load your sales: ${error.message}` : null}
       />
     </Shell>

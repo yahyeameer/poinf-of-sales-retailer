@@ -177,6 +177,49 @@ export async function updateReceiptSettings(input: {
 }
 
 // ---------------------------------------------------------------------------
+// Ledger repair
+// ---------------------------------------------------------------------------
+
+/**
+ * Rebuild `products.stock_on_hand` from `stock_movements`.
+ *
+ * The ledger is the truth and the column is a trigger-maintained cache of it.
+ * They can only drift if a trigger was disabled during a migration or a row was
+ * written round the side — rare, but when it happens every stock figure in the
+ * app is quietly wrong and nothing surfaces it. README has documented this
+ * function as the fix since the schema landed; it just had no button.
+ *
+ * Owner-only, and read-only in effect: it can only move the cache toward what
+ * the ledger already says, so running it when nothing is wrong is a no-op that
+ * reports zero.
+ */
+export async function recomputeStockOnHand(): Promise<ActionResult> {
+  const { ctx, error: authError } = await requireOwner();
+  if (!ctx) return { ok: false, message: authError! };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("recompute_stock_on_hand", {
+    p_tenant_id: ctx.tenantId,
+  });
+
+  if (error) return { ok: false, message: readableError(error) };
+
+  const corrected = Number(data ?? 0);
+
+  for (const path of ["/stock", "/catalog", "/warehouse", "/till", "/"]) {
+    revalidatePath(path);
+  }
+
+  return {
+    ok: true,
+    message:
+      corrected === 0
+        ? "Checked every product — the ledger and the stock figures already agree."
+        : `Corrected ${corrected} product${corrected === 1 ? "" : "s"} whose stock figure disagreed with the ledger.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Money and trading rules
 // ---------------------------------------------------------------------------
 

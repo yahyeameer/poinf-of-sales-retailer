@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ImageIcon, Receipt as ReceiptIcon, Store, Wallet } from "lucide-react";
+import { ImageIcon, Receipt as ReceiptIcon, Store, Stethoscope, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
   updateReceiptSettings,
   updateShopProfile,
   updateTradingSettings,
+  recomputeStockOnHand,
   uploadLogo,
 } from "@/app/settings-actions";
 import type { ShopBranding } from "@/lib/shop";
@@ -66,6 +67,7 @@ export function SettingsClient({
   const [logoNotice, setLogoNotice] = useState<Notice>(null);
   const [receiptNotice, setReceiptNotice] = useState<Notice>(null);
   const [tradingNotice, setTradingNotice] = useState<Notice>(null);
+  const [ledgerNotice, setLedgerNotice] = useState<Notice>(null);
 
   const [profile, setProfile] = useState({
     name: shop.name,
@@ -89,6 +91,15 @@ export function SettingsClient({
     allowOversell: shop.allowOversell,
     minMarginPct: String(shop.minMarginPct),
   });
+
+  function repairLedger() {
+    setLedgerNotice(null);
+    startTransition(async () => {
+      const r = await recomputeStockOnHand();
+      setLedgerNotice(r);
+      if (r.ok) router.refresh();
+    });
+  }
 
   // The preview reads the unsaved form state, not the saved row, so changes
   // show up as they are typed.
@@ -525,6 +536,39 @@ export function SettingsClient({
                   {pending ? "Saving…" : "Save trading settings"}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* ---------- Ledger repair ---------- */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Stethoscope className="size-4 text-primary" />
+                Stock figure check
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Every stock number in the app is a running total of the stock ledger, kept
+                up to date automatically. If the two ever drift apart, this rebuilds the
+                totals from the ledger — the ledger is the one that is right.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Safe to run at any time. It only ever moves a stock figure to what the
+                ledger already says, and tells you how many were wrong. On a healthy shop
+                that is none.
+              </p>
+
+              <ActionNotice result={ledgerNotice} />
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={disabled}
+                onClick={repairLedger}
+              >
+                {pending ? "Checking…" : "Check stock figures"}
+              </Button>
             </CardContent>
           </Card>
         </div>
