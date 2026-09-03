@@ -128,7 +128,23 @@ export async function drainQueue(): Promise<{ synced: number; rejected: number }
     let synced = 0;
     let rejected = 0;
 
+    // Which sales the server actually spoke about. Every row in this batch was
+    // moved to 'syncing' above, and only an outcome moves it out again — so a
+    // sale the response skips would sit in 'syncing' forever: re-selected on
+    // every drain (the query takes 'syncing' too), never incrementing attempts,
+    // never reaching MAX_ATTEMPTS, and therefore never appearing in
+    // listProblemSales(). Silent, unbounded, and invisible to the owner, which
+    // is exactly the failure rule 3 exists to prevent.
+    //
+    // The server can skip one: a sale that reaches it without a client_id is
+    // reported against the literal "unknown", so the real row hears nothing
+    // back. A truncated or partial response does the same to the tail of the
+    // batch.
+    const answered = new Set<string>();
+
     for (const result of data?.results ?? []) {
+      answered.add(result.client_id);
+
       if (result.status === "ok") {
         synced++;
         await db.withTransactionAsync(async () => {
@@ -161,6 +177,21 @@ export async function drainQueue(): Promise<{ synced: number; rejected: number }
           result.code ?? null,
           result.client_id,
         ],
+      );
+    }
+
+    const unanswered = rows.map((r) => r.client_id).filter((id) => !answered.has(id));
+    if (unanswered.length > 0) {
+      // Back to 'pending' with the attempt counted, so these retry like any
+      // other transient failure and eventually surface as problem sales rather
+      // than spinning. Not terminal: we have no idea whether the server took
+      // them, and process_sale() is idempotent on client_id, so retrying is
+      // always safe and is the only answer that can't lose money.
+      await db.runAsync(
+        `UPDATE pending_sales
+         SET status = 'pending', attempts = attempts + 1, last_error = ?
+         WHERE client_id IN (${unanswered.map(() => "?").join(",")})`,
+        ["The server did not report on this sale.", ...unanswered],
       );
     }
 
