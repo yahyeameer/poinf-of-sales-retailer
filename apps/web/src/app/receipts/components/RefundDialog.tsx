@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
 
-import type { Notice as NoticeResult, Receipt, RefundLine } from "./types";
+import type { Receipt, RefundLine } from "./types";
 
 /**
  * Money going back across the counter.

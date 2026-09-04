@@ -8,7 +8,7 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { dashboardHref } from "@/components/nav-items";
 import { createClient } from "@/lib/supabase/server";
 import { getTenantContext, navAccess } from "@/lib/tenant";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Notice } from "@/components/ui/notice";
@@ -22,8 +22,7 @@ import {
   CreditCard, 
   AlertTriangle, 
   ArrowUpRight,
-  CheckCircle2,
-  TrendingDown
+  CheckCircle2
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
