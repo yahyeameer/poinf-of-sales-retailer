@@ -15,9 +15,45 @@
         "name": "next"
       }
     ],
+    // Pin React's types to one copy, whatever npm does with hoisting.
+    //
+    // This monorepo holds two Reacts: apps/web is on 19, apps/mobile is on 18
+    // because that is what Expo SDK 52 and React Native 0.76 support. npm
+    // hoists one @types/react to the root and nests the other, and which one
+    // lands where depends on the whole tree — so it can differ between a
+    // developer's machine and a clean CI install of the same lockfile.
+    //
+    // When the two copies end up on opposite sides of a boundary, TypeScript
+    // sees two unrelated ReactNode types and rejects perfectly ordinary code
+    // with "'StatTile' cannot be used as a JSX component". That is what broke
+    // the Vercel build while the identical commit compiled locally: the
+    // deployment resolved next (and with it, React's types) from the root copy
+    // that @sentry/nextjs's peer dependency added, and the app's own source
+    // from the nested one.
+    //
+    // paths is program-wide, so every `import ... from "react"` in the build —
+    // ours, Next's, Radix's — resolves to the same declarations. The array is
+    // ordered: prefer this app's own copy, fall back to the root when npm
+    // chose to hoist it instead. Either way there is exactly one identity.
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "react": [
+        "./node_modules/@types/react",
+        "../../node_modules/@types/react"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*",
+        "../../node_modules/@types/react/*"
+      ],
+      "react-dom": [
+        "./node_modules/@types/react-dom",
+        "../../node_modules/@types/react-dom"
+      ],
+      "react-dom/*": [
+        "./node_modules/@types/react-dom/*",
+        "../../node_modules/@types/react-dom/*"
       ]
     },
     "allowJs": true
