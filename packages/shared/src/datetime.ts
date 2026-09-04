@@ -11,6 +11,13 @@
  *   - 8/14/2026, 2:17:31 AM       (server)
  *
  * So the locale is pinned here, exactly as formatMoney() pins its own.
+ *
+ * Pinning is necessary but not sufficient. Node and the browser ship different
+ * ICU builds, and their CLDR data can disagree on the same locale and options —
+ * en-GB long form is one case, where Node emits "Friday, 4 Sept 2026" and
+ * Chromium emits it without the comma. Anything rendered on both sides of
+ * hydration therefore goes through <LocalTime>, which carries
+ * suppressHydrationWarning for that residual difference.
  */
 
 /**

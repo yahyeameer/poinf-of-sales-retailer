@@ -33,7 +33,17 @@ export function LocalTime({ value, format = "datetime", className }: Props) {
   const text = FORMATTERS[format](value, local ? undefined : "UTC");
 
   return (
-    <time dateTime={iso} className={className}>
+    // Pinning the locale (see datetime.ts) removes almost all server/client
+    // disagreement, but not all of it: Node and the browser ship different ICU
+    // builds, and their CLDR data can differ on the same locale and options.
+    // en-GB "long" is one such case — Node's ICU 78 renders "Friday, 4 Sept
+    // 2026" and Chromium renders "Friday 4 Sept 2026". Identical inputs, one
+    // comma apart, and React threw away the whole dashboard tree over it.
+    //
+    // suppressHydrationWarning is the sanctioned answer for exactly this: a
+    // text node whose two renders are both correct. It is scoped to this
+    // element, so a genuine mismatch anywhere else still surfaces.
+    <time dateTime={iso} className={className} suppressHydrationWarning>
       {text}
     </time>
   );
