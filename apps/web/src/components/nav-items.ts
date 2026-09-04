@@ -168,14 +168,23 @@ export function dashboardHref(access: NavAccess | null): "/" | "/warehouse" {
   return "/";
 }
 
+/**
+ * NAV_GROUPS is the only source of access flags.
+ *
+ * The tab-bar constants above re-declare some of the same routes with shorter
+ * labels — "/warehouse" as "Home", "/transfers" as "Move" — and those copies
+ * carry no `managerOnly` or `warehouseOnly`. Building this index from both
+ * lists let the later, unflagged copy win (`new Map` keeps the last duplicate
+ * key), which quietly unrestricted exactly those two routes: a cashier was
+ * shown Transfers, and everyone was shown the warehouse dashboard, while
+ * Stocktake — flagged identically but declared only once — stayed correctly
+ * hidden. The inconsistency is what gave it away.
+ *
+ * So the index is built from NAV_GROUPS alone. Every tab-bar href also appears
+ * there, so nothing is lost, and a route's permissions now have one home.
+ */
 const ITEM_BY_HREF: ReadonlyMap<string, NavItem> = new Map(
-  [
-    ...NAV_GROUPS.flatMap((g) => g.items),
-    ...TAB_BAR_ITEMS,
-    ...WAREHOUSE_TAB_BAR_ITEMS,
-    TILL_ITEM,
-    WAREHOUSE_PRIMARY_ITEM,
-  ].map((item) => [item.href, item]),
+  NAV_GROUPS.flatMap((g) => g.items).map((item) => [item.href, item]),
 );
 
 /**
