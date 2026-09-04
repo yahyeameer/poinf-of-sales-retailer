@@ -44,3 +44,8 @@ yarn-error.log*
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Sentry CLI writes this during source map upload; it can contain the auth
+# token, and the repo is public.
+.sentryclirc
+.env.sentry-build-plugin

@@ -1,0 +1,66 @@
+# The check that would have caught it.
+#
+# `main` shipped code that did not compile: apps/web imported five identifiers
+# that never existed. Every production deploy failed on it and every preview
+# deploy of a branch that happened to fix it went green, which made the cause
+# look environmental for far longer than it should have. Nothing ran typecheck
+# or the tests on a push, so nothing said otherwise.
+#
+# Vercel builds only apps/web. That covers the Next app but never runs the
+# workspace tests, and it does not gate the merge — a broken commit lands on
+# main first and is discovered by the deploy afterwards. This runs before the
+# merge, across the whole workspace.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run irrelevant; cancel it
+# rather than queueing behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it fails when the lockfile and the
+      # manifests disagree, which is itself worth catching.
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Named workspaces rather than a bare `npm run test`: packages/db's
+      # tests need Docker and a full Supabase stack (see the note at the
+      # bottom), so a repo-wide run would always fail here.
+      - name: Unit tests
+        run: |
+          npm run test --workspace @ai-pos/shared
+          npm run test --workspace @ai-pos/web
+
+      - name: Build
+        run: npm run build
+
+# Deliberately not here:
+#
+#   * `npm run lint` — added in the same change as this file, but left out of
+#     the gate until it has run green on main for a while. A brand new linter
+#     over an existing codebase fails on style nobody has agreed to yet, and a
+#     red CI that everyone learns to ignore is worse than no CI.
+#
+#   * `packages/db`'s pgTAP tests — they need Docker and a full Supabase stack.
+#     Worth adding once someone has run `supabase start` in Actions and
+#     confirmed the runtime is tolerable; guessing at it here would produce a
+#     job that fails for reasons unrelated to the code.

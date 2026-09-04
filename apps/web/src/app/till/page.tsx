@@ -5,6 +5,8 @@ import { Shell } from "@/components/Shell";
 import { canAccessRoute } from "@/components/nav-items";
 import { createClient } from "@/lib/supabase/server";
 import { getTenantContext, navAccess } from "@/lib/tenant";
+import { getTillCashier, listTillStaff } from "@/lib/till-session";
+import { CashierGate } from "./components/CashierGate";
 import { TillClient, type TillProduct, type ParkedSale, type OpenShift } from "./TillClient";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +26,23 @@ export default async function TillPage() {
     return (
       <Shell shopName={ctx.shopName}>
         <AccessGate href="/till" access={access} />
+      </Shell>
+    );
+  }
+
+  // Who is standing here, as opposed to whose account is signed in. A shop
+  // phone stays signed in all day while staff take turns on it, so the account
+  // names the device. Staff with a PIN identify themselves before selling.
+  //
+  // Only gates when the shop actually has PIN staff: a one-person shop where
+  // the owner is the only user should not be asked to unlock their own till.
+  const tillStaff = await listTillStaff(ctx.locationId);
+  const cashier = await getTillCashier(ctx.locationId);
+
+  if (tillStaff.length > 0 && !cashier) {
+    return (
+      <Shell shopName={ctx.shopName} fullScreenOnMobile>
+        <CashierGate staff={tillStaff} currency={ctx.currency} />
       </Shell>
     );
   }
@@ -76,7 +95,10 @@ export default async function TillPage() {
         currency={ctx.currency}
         taxRate={Number(tenant?.tax_rate ?? 0)}
         taxInclusive={tenant?.tax_inclusive ?? true}
-        cashierName={ctx.userName}
+        // The person who unlocked, not the account. This is the name on the
+        // receipt and in "who rang it up", so it has to be the one that is
+        // also going into sales.cashier_id.
+        cashierName={cashier?.name ?? ctx.userName}
         locationName={ctx.locationName}
         canRefund={ctx.role === "owner" || ctx.role === "manager"}
       />
