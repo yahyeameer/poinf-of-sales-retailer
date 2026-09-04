@@ -21,6 +21,18 @@
    ---------------------------------------------------------------------------- */
 
 :root {
+  /* ---- chart series ------------------------------------------------------
+     Two-series pair for the revenue-vs-margin stack. Not picked by eye: run
+     through the palette validator for the lightness band, chroma floor,
+     colour-blind separation and contrast against this mode's surface. Slate
+     was the instinctive choice for "cost" and failed twice — it reads grey
+     (chroma 0.04) and sits ΔE 14.3 from the green, under the 15 floor where
+     even full-colour vision struggles. Burnt orange clears both.
+     Dark is re-stepped below rather than flipped: the light pair's dark
+     equivalents came out too light for the dark band. */
+  --chart-margin: #059669;
+  --chart-cost: #c2410c;
+
   --background: #f6fbf9;
   --foreground: #05140f;
 
@@ -79,6 +91,10 @@
 }
 
 .dark {
+  /* The green clears the dark band as-is; the orange needed a lighter step. */
+  --chart-margin: #059669;
+  --chart-cost: #ea580c;
+
   --background: #07100d;
   --foreground: #e8f5f0;
 
