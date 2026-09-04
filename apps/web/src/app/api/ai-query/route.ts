@@ -47,7 +47,8 @@ export async function POST(req: Request) {
         .join("; ");
 
       return NextResponse.json({
-        answer: `Found ${lowStock.length} items running low: ${items}. Consider placing a reorder soon!`,
+        matched: true,
+        answer: `${lowStock.length} item(s) running low: ${items}.`,
       });
     }
 
@@ -62,7 +63,11 @@ export async function POST(req: Request) {
       const avg = totalTx > 0 ? totalRev / totalTx : 0;
 
       return NextResponse.json({
-        answer: `Over the past 7 days, your average transaction value was ${money(avg)} across ${totalTx} completed transactions.`,
+        matched: true,
+        answer:
+          totalTx === 0
+            ? "No completed sales in the past 7 days, so there's no average basket to report."
+            : `Over the past 7 days your average basket was ${money(avg)} across ${totalTx} sales.`,
       });
     }
 
@@ -85,22 +90,39 @@ export async function POST(req: Request) {
       const cardPct = total > 0 ? Math.round((card / total) * 100) : 0;
 
       return NextResponse.json({
+        matched: true,
         answer:
-          `7-day payment breakdown — cash ${cashPct}% (${money(cash)}), ` +
-          `mobile money ${mobilePct}% (${money(mobile)}), ` +
-          `card ${cardPct}% (${money(card)}).`,
+          total === 0
+            ? "No payments recorded in the past 7 days."
+            : `7-day payment split — cash ${cashPct}% (${money(cash)}), ` +
+              `mobile money ${mobilePct}% (${money(mobile)}), ` +
+              `card ${cardPct}% (${money(card)}).`,
       });
     }
 
-    // Default intelligence summary fallback
+    // Nothing matched.
+    //
+    // This used to answer anyway: "Analysis complete for <question>. Your
+    // catalog contains N products. Store health is good with active sales
+    // processing." Three sentences of confident prose, none of which had
+    // anything to do with what was asked, and the last of which was invented
+    // outright — "store health is good" is measured by nothing. A shop owner
+    // asking "am I losing money on rice?" got told everything was fine.
+    //
+    // Saying plainly that the question is out of range is more useful than a
+    // fluent non-answer, and far safer. `matched: false` lets the UI present
+    // it as a limitation rather than as an insight.
     const { count: productCount } = await supabase
       .from("products")
       .select("*", { count: "exact", head: true });
 
     return NextResponse.json({
-      answer: `Analysis complete for: "${query}". Your catalog contains ${
-        productCount ?? 0
-      } registered products. Store health is good with active sales processing.`,
+      matched: false,
+      answer:
+        `I can't answer that one yet. I look up figures directly from your shop's ` +
+        `data, and I currently cover: what's below its reorder point, your average ` +
+        `basket size, and the split between cash, mobile money and card. ` +
+        `Your catalog has ${productCount ?? 0} products.`,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
