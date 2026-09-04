@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="AI POS">
+  <rect width="32" height="32" rx="7" fill="#07100d"/>
+  <!-- A till drawer: the thing staff open all day, readable at 16px. -->
+  <path d="M6 13.5 9 7h14l3 6.5" fill="none" stroke="#34d399" stroke-width="2.2"
+        stroke-linejoin="round" stroke-linecap="round"/>
+  <rect x="6" y="13.5" width="20" height="11.5" rx="2.5" fill="none"
+        stroke="#34d399" stroke-width="2.2"/>
+  <path d="M13 19h6" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

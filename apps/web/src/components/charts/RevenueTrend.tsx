@@ -46,7 +46,17 @@ export function RevenueTrend({ data, currency }: { data: TrendPoint[]; currency:
   }
 
   return (
-    <div className="relative">
+    // The 700-wide coordinate space scaled to a 390px phone put the axis
+    // labels at about five pixels — present, but not readable, which is worse
+    // than absent because it looks like the chart is working. Scrolling a
+    // readable chart beats shrinking an unreadable one, and it is the same
+    // answer this codebase already gives for wide tables.
+    //
+    // `relative` moves inward with the min-width, because the hover tooltip
+    // positions itself as a percentage of the SVG's box — anchoring it to the
+    // scroll container instead would drift it off the bar it describes.
+    <div className="overflow-x-auto">
+      <div className="relative min-w-[600px]">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
@@ -145,6 +155,7 @@ export function RevenueTrend({ data, currency }: { data: TrendPoint[]; currency:
           <div className="text-muted-foreground">{data[hover].transactions} sales</div>
         </div>
       )}
+      </div>
     </div>
   );
 }
