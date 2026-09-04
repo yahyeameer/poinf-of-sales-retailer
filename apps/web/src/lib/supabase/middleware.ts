@@ -1,6 +1,22 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { withDeadline } from "@/lib/deadline";
+
+import { supabaseConfig } from "./config";
+
+/**
+ * The middleware's share of the same budget (see server.ts for why this is one
+ * deadline per client rather than a timeout per fetch).
+ *
+ * Tighter than the page budget deliberately: this runs before every single
+ * request, so time spent here is added to everything, and the catch below
+ * already treats a failed auth check as "let them through" rather than as an
+ * error. Missing an auth check for one request when Supabase is unreachable
+ * costs nothing — RLS still refuses every row.
+ */
+const AUTH_BUDGET_MS = 3_000;
+
 // Exact matches, plus a prefix rule for the auth callback routes.
 //
 // This was a `startsWith` check over a list that included "/". Since every path
@@ -27,8 +43,7 @@ function isPublicPath(pathname: string): boolean {
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const config = supabaseConfig();
 
   // Demo mode has to be switched on by whoever deploys the app, not by whoever
   // visits it. Previously `?demo=true` on any URL skipped the auth check and
@@ -40,7 +55,10 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.searchParams.get("demo") === "true" ||
     request.cookies.get("demo_mode")?.value === "true";
 
-  if (!supabaseUrl || !supabaseKey) {
+  // Nothing to check against. The setup screen in layout.tsx explains this to
+  // whoever opens the app; redirecting to /login instead would just be a sign
+  // in form with nothing behind it.
+  if (!config) {
     return response;
   }
 
@@ -64,12 +82,14 @@ export async function updateSession(request: NextRequest) {
   }
 
   try {
-    const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    const deadline = AbortSignal.timeout(AUTH_BUDGET_MS);
+
+    const supabase = createServerClient(config.url, config.key, {
       global: {
         fetch: (input: RequestInfo | URL, init?: RequestInit) => {
           return fetch(input, {
             ...init,
-            signal: init?.signal ?? AbortSignal.timeout(2000),
+            signal: init?.signal ? AbortSignal.any([init.signal, deadline]) : deadline,
           });
         },
       },
@@ -89,9 +109,11 @@ export async function updateSession(request: NextRequest) {
       },
     });
 
+    // Bounded at the call site, not just at the socket: aborting the fetch
+    // does not stop supabase-js retrying. See lib/deadline.ts.
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await withDeadline(supabase.auth.getUser(), AUTH_BUDGET_MS, "middleware auth check");
 
     const { pathname } = request.nextUrl;
 

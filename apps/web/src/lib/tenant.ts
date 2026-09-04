@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
 
+import { cache } from "react";
+
+import { withDeadline } from "@/lib/deadline";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_LOCATION_COOKIE } from "@/lib/location";
 import type { LocationKind, NavAccess } from "@/components/nav-items";
@@ -34,6 +37,10 @@ export interface TenantContext {
   pinnedToLocation: boolean;
 }
 
+/** Bounds the whole load — the auth check plus the three queries after it —
+ *  so a slow database costs one slow page rather than a function timeout. */
+const TENANT_BUDGET_MS = 8_000;
+
 /**
  * Who is asking, and which shop are they in.
  *
@@ -44,8 +51,39 @@ export interface TenantContext {
  * Every write needs `tenantId` explicitly because the RLS WITH CHECK compares
  * the inserted row's tenant_id against the session's. The database would reject
  * a mismatch, but supplying it here means the failure never happens.
+ *
+ * cache() dedupes this across a single render.
+ *
+ * A page and its Shell (and, on the dashboard, several cards) each call this,
+ * and every one of them was doing its own auth check and its own three
+ * queries — the same four round-trips repeated four or five times per page.
+ * That was invisible while the database was fast and merciless when it was
+ * not: against an unresponsive Supabase the dashboard spent 8 seconds per
+ * call and took 39 to render, because that budget is per call and there
+ * were five of them.
+ *
+ * Deduping is the fix for both. One load per request, so the budget means what
+ * it says, and the healthy path drops from ~20 queries to 4.
  */
-export async function getTenantContext(): Promise<TenantContext | null> {
+export const getTenantContext = cache(async (): Promise<TenantContext | null> => {
+  try {
+    return await withDeadline(loadTenantContext(), TENANT_BUDGET_MS, "tenant context");
+  } catch (error) {
+    // Never let this throw. Every page in the app calls it before rendering
+    // anything, so an exception here is not "this page failed" — it is the
+    // whole app replaced by the error boundary, which is what a cold Supabase
+    // or a paused project used to do. The middleware has always taken this
+    // view of a failed auth check; this brings the pages into line with it.
+    //
+    // Returning null means callers fall back to the state they already have
+    // for "nobody is signed in", which is the honest answer: if we cannot
+    // reach the database we genuinely do not know who this is.
+    console.error("[tenant] could not load context, treating as signed out:", error);
+    return null;
+  }
+});
+
+async function loadTenantContext(): Promise<TenantContext | null> {
   const supabase = await createClient();
 
   const {

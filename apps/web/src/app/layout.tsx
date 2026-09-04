@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 
+import { SetupRequired } from "@/components/SetupRequired";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
 import "./globals.css";
@@ -43,6 +45,8 @@ r.style.colorScheme=d?'dark':'light';
 }catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const configured = isSupabaseConfigured();
+
   return (
     // The head script mutates <html class>, which the server cannot predict.
     // Without this React logs a hydration mismatch on every page load.
@@ -52,7 +56,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <ThemeProvider>
-          <ToastProvider>{children}</ToastProvider>
+          {/* Checked here rather than per page so there is one answer for every
+              route, including ones reached directly. Without a database no page
+              in this app can render anything real, so showing the setup screen
+              is not hiding a working app — it is describing the only state the
+              app is actually in. */}
+          <ToastProvider>{configured ? children : <SetupRequired />}</ToastProvider>
         </ThemeProvider>
       </body>
     </html>

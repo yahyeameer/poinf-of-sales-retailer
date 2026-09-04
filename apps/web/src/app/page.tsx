@@ -6,6 +6,7 @@ import { Shell } from "@/components/Shell";
 import { AiAssistant } from "@/components/AiAssistant";
 import { DemoBanner } from "@/components/DemoBanner";
 import { dashboardHref } from "@/components/nav-items";
+import { withDeadline } from "@/lib/deadline";
 import { createClient } from "@/lib/supabase/server";
 import { getTenantContext, navAccess } from "@/lib/tenant";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,11 @@ function percentChange(current: number, previous: number): string {
   const pct = Math.round(((current - previous) / previous) * 100);
   return `${pct >= 0 ? "+" : ""}${pct}% vs last week`;
 }
+
+/** The dashboard's own share of the budget, on top of the tenant load. Kept
+ *  well inside a 10s serverless function limit: sample figures rendered now
+ *  beat real figures rendered after the gateway has given up. */
+const DASHBOARD_BUDGET_MS = 5_000;
 
 export default async function DashboardPage() {
   // Warehouse staff get their own dashboard. Redirecting rather than gating,
@@ -72,34 +78,27 @@ export default async function DashboardPage() {
     { name: "Sunflower Oil 1L", units: 15, revenue_cents: 5700 },
   ];
 
+  // getTenantContext() above already resolved all four of these, and this block
+  // used to look them up again from scratch — a second client, a second
+  // auth.getUser(), and repeat queries against users and tenants. Redundant
+  // when the database is healthy; expensive when it is not, since it was the
+  // largest unbounded wait left on the page people actually land on.
+  if (ctx) {
+    shopName = ctx.shopName;
+    userName = ctx.userName || userName;
+    userRole = ctx.role || userRole;
+    currency = ctx.currency;
+  }
+
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (user) {
-      const { data: profile } = await supabase
-        .from("users")
-        .select("name, role, tenant_id")
-        .eq("id", user.id)
-        .single();
-
-      if (profile) {
-        userName = profile.name || userName;
-        userRole = profile.role || userRole;
-      }
-
-      const { data: tenant } = await supabase
-        .from("tenants")
-        .select("name, currency")
-        .single();
-
-      if (tenant) {
-        shopName = tenant.name || shopName;
-        currency = tenant.currency || currency;
-      }
+    if (ctx) {
+      const supabase = await createClient();
 
       const [{ data: daily }, { data: dbLowStock }, { data: dbTopMovers }, { data: dbOversold }] =
-        await Promise.all([
+        // Bounded as one unit: four queries that either arrive in time to be
+        // worth showing or are replaced by the sample figures below. See
+        // lib/deadline.ts for why the socket timeout is not enough on its own.
+        await withDeadline(Promise.all([
           supabase
             .from("v_sales_daily")
             .select("day, transactions, revenue_cents, cash_cents, mobile_money_cents, card_cents")
@@ -121,7 +120,7 @@ export default async function DashboardPage() {
             .from("sales")
             .select("id", { count: "exact", head: true })
             .eq("has_oversell", true),
-        ]);
+        ]), DASHBOARD_BUDGET_MS, "dashboard queries");
 
       if (daily && daily.length > 0) rows = daily;
       if (dbLowStock) lowStock = dbLowStock;
@@ -134,13 +133,16 @@ export default async function DashboardPage() {
         topMovers = dbTopMovers ?? [];
       }
     } else {
-      demoReason = "You're not signed in, so these are sample figures.";
+      // Covers both states getTenantContext() collapses into null: nobody
+      // signed in, and signed in but without a shop yet. "You're not signed
+      // in" would be a lie to the second group, who do have an account.
+      demoReason = "You're not signed in to a shop, so these are sample figures.";
     }
   } catch (error) {
-    demoReason =
-      error instanceof Error
-        ? `Couldn't reach the database (${error.message}), so these are sample figures.`
-        : "Couldn't reach the database, so these are sample figures.";
+    // The reason goes on screen in a shop, so it says what happened in plain
+    // words. The detail — which budget elapsed, which query failed — goes to
+    // the log and to Sentry, where someone can act on it.
+    demoReason = "Couldn't reach the database just now, so these are sample figures.";
     console.error("[dashboard] falling back to demo data:", error);
   }
 
