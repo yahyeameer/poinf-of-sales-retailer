@@ -7,7 +7,15 @@ import { Menu } from "lucide-react";
 
 import { NavIcon } from "@/components/NavIcon";
 import { SidebarNav } from "@/components/SidebarNav";
-import { TAB_BAR_ITEMS, TILL_ITEM, isRouteActive } from "@/components/nav-items";
+import {
+  TAB_BAR_ITEMS,
+  TILL_ITEM,
+  WAREHOUSE_PRIMARY_ITEM,
+  WAREHOUSE_TAB_BAR_ITEMS,
+  isRouteActive,
+  type NavAccess,
+  type NavItem,
+} from "@/components/nav-items";
 import {
   Sheet,
   SheetContent,
@@ -26,12 +34,19 @@ import { cn } from "@/lib/utils";
  * else lives behind More, which is a bottom sheet rather than a drawer because
  * a shop phone is held one-handed and the top of the screen is out of reach.
  */
-export function MobileTabBar({ isManager }: { isManager: boolean }) {
+export function MobileTabBar({ access }: { access: NavAccess | null }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = React.useState(false);
 
-  const tillActive = isRouteActive(pathname, TILL_ITEM.href);
-  const TillIcon = TILL_ITEM.icon;
+  // Someone pinned to a warehouse has no drawer and no customer, so the raised
+  // slot goes to transfers instead of the till and "Home" points at the
+  // warehouse dashboard. Everyone else gets the layout they had.
+  const inWarehouse = access?.pinnedToLocation && access.locationKind === "warehouse";
+  const tabs: NavItem[] = inWarehouse ? WAREHOUSE_TAB_BAR_ITEMS : TAB_BAR_ITEMS;
+  const primary: NavItem = inWarehouse ? WAREHOUSE_PRIMARY_ITEM : TILL_ITEM;
+
+  const primaryActive = isRouteActive(pathname, primary.href);
+  const PrimaryIcon = primary.icon;
 
   return (
     <>
@@ -43,7 +58,7 @@ export function MobileTabBar({ isManager }: { isManager: boolean }) {
         )}
       >
         <div className="grid grid-cols-5 items-end px-1 pt-1">
-          {TAB_BAR_ITEMS.slice(0, 2).map((item) => (
+          {tabs.slice(0, 2).map((item) => (
             <TabLink key={item.href} item={item} pathname={pathname} />
           ))}
 
@@ -51,23 +66,23 @@ export function MobileTabBar({ isManager }: { isManager: boolean }) {
               open at all, and it should be hittable without looking. */}
           <div className="flex justify-center">
             <Link
-              href={TILL_ITEM.href as never}
-              aria-current={tillActive ? "page" : undefined}
+              href={primary.href as never}
+              aria-current={primaryActive ? "page" : undefined}
               className={cn(
                 "-mt-6 flex size-14 flex-col items-center justify-center gap-0.5 rounded-full",
                 "bg-linear-to-b from-primary-bright to-primary text-primary-foreground",
                 "shadow-[var(--glow-btn)] transition-all duration-200",
                 "active:scale-95",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                tillActive && "shadow-[var(--glow-btn-hover)]",
+                primaryActive && "shadow-[var(--glow-btn-hover)]",
               )}
             >
-              <NavIcon icon={TillIcon} className="size-5" />
-              <span className="text-[10px] font-bold leading-none">{TILL_ITEM.label}</span>
+              <NavIcon icon={PrimaryIcon} className="size-5" />
+              <span className="text-[10px] font-bold leading-none">{primary.label}</span>
             </Link>
           </div>
 
-          {TAB_BAR_ITEMS.slice(2).map((item) => (
+          {tabs.slice(2).map((item) => (
             <TabLink key={item.href} item={item} pathname={pathname} />
           ))}
 
@@ -99,7 +114,7 @@ export function MobileTabBar({ isManager }: { isManager: boolean }) {
           {/* Closing on navigate is manual: Radix has no idea a Link inside it
               changed the route, and the sheet would otherwise stay open over
               the page it just opened. */}
-          <SidebarNav isManager={isManager} onNavigate={() => setMoreOpen(false)} />
+          <SidebarNav access={access} onNavigate={() => setMoreOpen(false)} />
         </SheetContent>
       </Sheet>
     </>
@@ -110,7 +125,7 @@ function TabLink({
   item,
   pathname,
 }: {
-  item: (typeof TAB_BAR_ITEMS)[number];
+  item: NavItem;
   pathname: string | null;
 }) {
   const active = isRouteActive(pathname, item.href);

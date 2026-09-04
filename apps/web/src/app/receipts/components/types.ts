@@ -22,6 +22,12 @@ export interface Receipt {
   voided?: boolean;
   isRefund?: boolean;
   refundedUnits?: number;
+  /**
+   * Whether the signed-in user rang this one up. void_sale() lets a cashier
+   * void their own sale for five minutes and nobody else's, so the button has
+   * to know whose it is before it can decide whether to offer itself.
+   */
+  isOwnSale?: boolean;
 }
 
 /** One line of a refund: how many of a given sale item are coming back. */
@@ -40,4 +46,5 @@ export type Notice = { ok: boolean; message: string } | null;
 export type ReceiptsDialog =
   | { name: "view"; receipt: Receipt }
   | { name: "refund"; receipt: Receipt }
+  | { name: "void"; receipt: Receipt }
   | null;

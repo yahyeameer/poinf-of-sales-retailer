@@ -167,6 +167,15 @@ export interface ImportRow {
 /**
  * Bulk import. Products go in one statement so a mid-list failure doesn't leave
  * half a catalog behind; opening balances follow as ledger entries.
+ *
+ * The ids are generated here rather than by the database, because the opening
+ * balance for row N has to land on the product from row N. Pairing the returned
+ * rows back to the input by array index — which is what this did — assumes
+ * `insert ... returning` hands rows back in the order they were given. Postgres
+ * happens to, but nothing promises it, and PostgREST adds no ORDER BY. The day
+ * that assumption broke, every opening balance in the file would attach to the
+ * wrong product: no error, no warning, just a catalog whose stock is quietly
+ * shuffled. Supplying the ids removes the correlation step altogether.
  */
 export async function importProducts(rows: ImportRow[]): Promise<ActionResult> {
   const ctx = await getTenantContext();
@@ -175,29 +184,30 @@ export async function importProducts(rows: ImportRow[]): Promise<ActionResult> {
 
   const supabase = await createClient();
 
+  const prepared = rows.map((r) => ({
+    id: crypto.randomUUID(),
+    tenant_id: ctx.tenantId,
+    name: r.name.trim(),
+    barcode: r.barcode?.trim() || null,
+    price_cents: r.priceCents,
+    reorder_point: 5,
+    stock: r.stock,
+  }));
+
   const { data: inserted, error } = await supabase
     .from("products")
-    .insert(
-      rows.map((r) => ({
-        tenant_id: ctx.tenantId,
-        name: r.name.trim(),
-        barcode: r.barcode?.trim() || null,
-        price_cents: r.priceCents,
-        reorder_point: 5,
-      })),
-    )
-    .select("id, name");
+    .insert(prepared.map(({ stock, ...product }) => product))
+    .select("id");
 
   if (error) return { ok: false, message: readableError(error) };
 
-  const openingBalances = (inserted ?? [])
-    .map((product, i) => ({ product, stock: rows[i]?.stock ?? 0 }))
-    .filter(({ stock }) => stock > 0)
-    .map(({ product, stock }) => ({
+  const openingBalances = prepared
+    .filter((p) => p.stock > 0)
+    .map((p) => ({
       tenant_id: ctx.tenantId,
       location_id: ctx.locationId,
-      product_id: product.id,
-      delta: stock,
+      product_id: p.id,
+      delta: p.stock,
       reason: "adjustment" as const,
       note: "Opening balance (CSV import)",
       created_by: ctx.userId,
@@ -216,6 +226,6 @@ export async function importProducts(rows: ImportRow[]): Promise<ActionResult> {
   revalidatePath("/");
   return {
     ok: true,
-    message: `Imported ${inserted?.length ?? 0} products.${stockNote}`,
+    message: `Imported ${inserted?.length ?? rows.length} products.${stockNote}`,
   };
 }

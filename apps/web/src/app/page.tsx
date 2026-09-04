@@ -7,7 +7,7 @@ import { AiAssistant } from "@/components/AiAssistant";
 import { DemoBanner } from "@/components/DemoBanner";
 import { dashboardHref } from "@/components/nav-items";
 import { createClient } from "@/lib/supabase/server";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, navAccess } from "@/lib/tenant";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -46,7 +46,7 @@ export default async function DashboardPage() {
   // and there is a real page for them to be on. Owners are unpinned and stay.
   const ctx = await getTenantContext();
   if (ctx) {
-    const home = dashboardHref(ctx.locationKind);
+    const home = dashboardHref(navAccess(ctx));
     if (home !== "/") redirect(home);
   }
 

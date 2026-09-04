@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 
+import { AccessGate } from "@/components/AccessGate";
 import { Shell } from "@/components/Shell";
+import { canAccessRoute } from "@/components/nav-items";
 import { createClient } from "@/lib/supabase/server";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, navAccess } from "@/lib/tenant";
 import { TillClient, type TillProduct, type ParkedSale, type OpenShift } from "./TillClient";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,19 @@ export default async function TillPage() {
   // The till takes money. There is no useful read-only preview of that, so a
   // signed-out visitor goes to the door rather than seeing a fake shop.
   if (!ctx) redirect("/login?next=/till");
+
+  // Hiding the link is not the same as closing the door: a bookmark, a shared
+  // URL or the back button all arrive here directly. Someone pinned to a
+  // warehouse has no drawer to open, and letting them open a shift against one
+  // would put cash movements on a location that never sees cash.
+  const access = navAccess(ctx);
+  if (!canAccessRoute("/till", access)) {
+    return (
+      <Shell shopName={ctx.shopName}>
+        <AccessGate href="/till" access={access} />
+      </Shell>
+    );
+  }
 
   const supabase = await createClient();
 

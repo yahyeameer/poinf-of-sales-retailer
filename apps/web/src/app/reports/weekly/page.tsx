@@ -1,7 +1,9 @@
 import { formatMoney } from "@ai-pos/shared";
 import { CheckCircle2, TrendingUp } from "lucide-react";
 
+import { AccessGate } from "@/components/AccessGate";
 import { Shell } from "@/components/Shell";
+import { canAccessRoute } from "@/components/nav-items";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, navAccess } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,17 @@ export default async function WeeklyReportPage() {
     );
   }
 
+  // The digest is entirely takings, baskets and movers. None of it exists for
+  // someone pinned to a warehouse, where RLS scopes sales away.
+  const access = navAccess(ctx);
+  if (!canAccessRoute("/reports/weekly", access)) {
+    return (
+      <Shell shopName={ctx.shopName}>
+        <AccessGate href="/reports/weekly" access={access} />
+      </Shell>
+    );
+  }
+
   const supabase = await createClient();
 
   // Every figure on this page used to be a literal — "+18%", "$1,850.00",
@@ -75,6 +88,26 @@ export default async function WeeklyReportPage() {
     );
   }
 
+  // Whether the emailed version of this actually went out. Until the delivery
+  // log existed there was no way to tell: outcomes lived only in the cron run's
+  // HTTP response, which nobody reads, so a send failing every week looked
+  // exactly like one that worked.
+  const { data: deliveries } = await supabase
+    .from("report_deliveries")
+    .select("id, period_end, status, recipient, reason, created_at")
+    .eq("kind", "weekly")
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  const sends = (deliveries ?? []) as unknown as {
+    id: string;
+    period_end: string;
+    status: "sent" | "skipped" | "failed";
+    recipient: string | null;
+    reason: string | null;
+    created_at: string;
+  }[];
+
   const stats = data as WeeklyStats;
   const currency = stats.currency ?? ctx.currency;
   const movers = stats.top_5_movers ?? [];
@@ -85,9 +118,66 @@ export default async function WeeklyReportPage() {
     <Shell shopName={ctx.shopName}>
       <h1 className="text-2xl font-bold tracking-tight text-gradient">Weekly Store Digest</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Last seven days, straight from the ledger. Numbers only — the written summary
-        goes out by email once the digest job is wired up.
+        Last seven days, straight from the ledger. The written summary is emailed to the
+        owner every Monday morning.
       </p>
+
+      <Card className="mt-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Email delivery</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sends.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No digest has been emailed yet. The job runs Mondays at 06:00 UTC once the
+              schedule is enabled on the database — see{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                20260903000300_weekly_report_schedule.sql
+              </code>
+              .
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Week ending</TableHead>
+                  <TableHead>Outcome</TableHead>
+                  <TableHead>Sent to</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sends.map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {d.period_end}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          d.status === "sent"
+                            ? "success"
+                            : d.status === "failed"
+                              ? "destructive"
+                              : "outline"
+                        }
+                        className="capitalize"
+                      >
+                        {d.status}
+                      </Badge>
+                      {d.reason && (
+                        <span className="ml-2 text-xs text-muted-foreground">{d.reason}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {d.recipient ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Card>

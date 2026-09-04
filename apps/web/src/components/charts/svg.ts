@@ -11,9 +11,17 @@
 import { minorUnitExponent } from "@ai-pos/shared";
 
 /**
- * Money for an axis tick or a compact label: "$1.2k", "$800", not
+ * Money for an axis tick or a compact label: "$1.2K", "$800", not
  * "$1,234.00" — a full amount does not fit under a column. Pinned en-US and
  * wrapped in try/catch for the same trimmed-ICU reason formatMoney is.
+ *
+ * minimumFractionDigits: 0 is doing real work. With only a maximum set, Node's
+ * ICU pads compact notation back out to one decimal — every axis tick rendered
+ * "$0.0", "$125.0", "$500.0" — while the browser's ICU dropped it. So the axis
+ * was wrong in the server HTML, right after hydration, and different enough
+ * between the two that React discarded the tree. Setting the minimum makes
+ * both runtimes agree on the shorter form, which is the one this was always
+ * meant to produce.
  */
 export function compactMoney(cents: number, currency: string): string {
   const amount = cents / 10 ** minorUnitExponent(currency);
@@ -22,6 +30,7 @@ export function compactMoney(cents: number, currency: string): string {
       style: "currency",
       currency,
       notation: "compact",
+      minimumFractionDigits: 0,
       maximumFractionDigits: 1,
     }).format(amount);
   } catch {

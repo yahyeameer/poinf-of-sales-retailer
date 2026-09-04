@@ -26,6 +26,39 @@ const nextConfig = {
   // so Next has to compile them itself.
   transpilePackages: ["@ai-pos/shared", "@ai-pos/prompts"],
   typedRoutes: true,
+
+  /**
+   * Response headers.
+   *
+   * The till takes money and the staff page sets PINs, so framing is the one
+   * that matters most here: without X-Frame-Options an attacker can put the
+   * real till in a transparent iframe under their own buttons and harvest a
+   * shift's takings through a cashier who never sees it.
+   *
+   * Deliberately no Content-Security-Policy. A useful one needs a nonce
+   * threaded through the inline theme script in layout.tsx, and a CSP that is
+   * wrong does not degrade — it blanks the app. Shipping one that has never
+   * run against a real deployment would be worse than shipping none, so it is
+   * written up as follow-up work rather than guessed at here.
+   */
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // The web app never touches these; barcode scanning is the mobile
+          // app's job and uses a native module, not the browser camera.
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

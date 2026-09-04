@@ -220,6 +220,52 @@ export async function deleteParkedSale(id: string): Promise<ActionResult> {
   return { ok: true, message: "Removed." };
 }
 
+// --- voids ----------------------------------------------------------------
+
+/**
+ * Cancel a sale outright, as opposed to refunding part of it.
+ *
+ * The distinction matters at the drawer. A refund is its own document with its
+ * own negative total, which is what you want when a customer brings something
+ * back tomorrow. A void says the sale should never have been rung up at all —
+ * the wrong button, a double scan, a customer who changed their mind while the
+ * cash was still in the cashier's hand — and leaving it as a sale plus a refund
+ * makes a day's takings read as two transactions that never happened.
+ *
+ * void_sale() decides who may: owners and managers for the whole day, a cashier
+ * for five minutes and only on their own sale. It writes compensating ledger
+ * entries rather than deleting anything, and it is idempotent, so a double-tap
+ * on a slow connection cannot double-restock.
+ */
+export async function voidSale(
+  saleId: string,
+  reason: string | null,
+): Promise<ActionResult<{ saleId: string }>> {
+  const ctx = await getTenantContext();
+  if (!ctx) return { ok: false, message: "You need to sign in first." };
+  if (!saleId) return { ok: false, message: "Pick a sale first." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("void_sale", {
+    p_sale_id: saleId,
+    p_reason: reason?.trim() || null,
+  });
+
+  // PS403 ("you can only void your own sales") and PS405 ("older than five
+  // minutes — ask the owner") arrive with the sentence the cashier should read,
+  // and `readable` passes both straight through.
+  if (error) return { ok: false, message: readable(error) };
+
+  const sale = data as { id: string };
+
+  revalidatePath("/receipts");
+  revalidatePath("/till");
+  revalidatePath("/");
+  revalidatePath("/stock");
+
+  return { ok: true, message: "Sale voided. The stock has gone back.", data: { saleId: sale.id } };
+}
+
 // --- refunds --------------------------------------------------------------
 
 export async function refundSale(input: {

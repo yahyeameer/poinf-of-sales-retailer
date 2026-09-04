@@ -2,11 +2,12 @@ import { cookies } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_LOCATION_COOKIE } from "@/lib/location";
+import type { LocationKind, NavAccess } from "@/components/nav-items";
 
 export interface ShopLocation {
   id: string;
   name: string;
-  kind: "shop" | "warehouse" | "van";
+  kind: LocationKind;
   is_default: boolean;
 }
 
@@ -23,6 +24,12 @@ export interface TenantContext {
   /** Where writes land unless told otherwise. */
   locationId: string | null;
   locationName: string;
+  /**
+   * What kind of place that is. Mirrors `public.current_location_kind()`, which
+   * exists for exactly this: the app has to route a warehouse picker somewhere
+   * other than the retail dashboard, and it has to decide that on every request.
+   */
+  locationKind: LocationKind | null;
   /** True when staff are tied to a single location and cannot switch. */
   pinnedToLocation: boolean;
 }
@@ -95,6 +102,22 @@ export async function getTenantContext(): Promise<TenantContext | null> {
     locations: visible,
     locationId: active?.id ?? null,
     locationName: active?.name ?? "No location",
+    locationKind: active?.kind ?? null,
     pinnedToLocation: pinned,
+  };
+}
+
+/**
+ * The slice of the context that route visibility depends on.
+ *
+ * Narrowing here rather than passing the whole context keeps `nav-items` free of
+ * `next/headers`, which matters because the sidebar and the tab bar that read it
+ * are client components.
+ */
+export function navAccess(ctx: TenantContext): NavAccess {
+  return {
+    role: ctx.role,
+    locationKind: ctx.locationKind,
+    pinnedToLocation: ctx.pinnedToLocation,
   };
 }

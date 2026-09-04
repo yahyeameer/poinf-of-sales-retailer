@@ -2,7 +2,7 @@ import { LocationSwitcher } from "@/components/LocationSwitcher";
 import { MobileTabBar } from "@/components/MobileTabBar";
 import { SidebarNav } from "@/components/SidebarNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { getTenantContext } from "@/lib/tenant";
+import { getTenantContext, navAccess } from "@/lib/tenant";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,7 +30,7 @@ export async function Shell({
   fullScreenOnMobile?: boolean;
 }) {
   const ctx = await getTenantContext();
-  const isManager = ctx?.role === "owner" || ctx?.role === "manager";
+  const access = ctx ? navAccess(ctx) : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -54,7 +54,7 @@ export async function Shell({
         )}
 
         <div className="flex-1 overflow-y-auto px-3 py-4">
-          <SidebarNav isManager={isManager} />
+          <SidebarNav access={access} />
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
@@ -111,7 +111,7 @@ export async function Shell({
         </div>
       </main>
 
-      {!fullScreenOnMobile && <MobileTabBar isManager={isManager} />}
+      {!fullScreenOnMobile && <MobileTabBar access={access} />}
     </div>
   );
 }

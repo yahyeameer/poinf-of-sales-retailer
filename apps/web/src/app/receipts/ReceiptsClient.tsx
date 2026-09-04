@@ -11,11 +11,12 @@ import type { ReceiptShop } from "@/components/Receipt";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { refundSale } from "@/app/till/actions";
+import { refundSale, voidSale } from "@/app/till/actions";
 
 import { ReceiptsTable } from "./components/ReceiptsTable";
 import { ReceiptViewDialog } from "./components/ReceiptViewDialog";
 import { RefundDialog } from "./components/RefundDialog";
+import { VoidDialog } from "./components/VoidDialog";
 import type { Receipt, ReceiptsDialog, RefundLine } from "./components/types";
 
 // Re-exported so page.tsx can describe its own props without reaching into
@@ -35,6 +36,7 @@ export function ReceiptsClient({
   shopName,
   shop,
   canRefund,
+  canVoidAny,
   demoReason,
 }: {
   initialReceipts: Receipt[];
@@ -42,6 +44,7 @@ export function ReceiptsClient({
   shopName: string;
   shop: ReceiptShop;
   canRefund: boolean;
+  canVoidAny: boolean;
   demoReason: string | null;
 }) {
   const router = useRouter();
@@ -72,6 +75,25 @@ export function ReceiptsClient({
         method: null,
         restock,
       });
+
+      toast(result);
+      if (result.ok) {
+        setDialog(null);
+        router.refresh();
+      }
+    });
+  }
+
+  function submitVoid(reason: string) {
+    if (dialog?.name !== "void") return;
+    const saleId = dialog.receipt.saleId;
+
+    startTransition(async () => {
+      // No client_id here, unlike a refund. void_sale() is idempotent on the
+      // sale's own status — a second call against an already-voided sale
+      // returns it unchanged rather than restocking twice — so a retry needs
+      // no key of its own.
+      const result = await voidSale(saleId, reason || null);
 
       toast(result);
       if (result.ok) {
@@ -119,9 +141,13 @@ export function ReceiptsClient({
             receipts={receipts}
             currency={currency}
             canRefund={canRefund}
+            canVoidAny={canVoidAny}
             onView={(receipt) => setDialog({ name: "view", receipt })}
             onRefund={(receipt) => {
               setDialog({ name: "refund", receipt });
+            }}
+            onVoid={(receipt) => {
+              setDialog({ name: "void", receipt });
             }}
             whatsAppLink={whatsAppLink}
           />
@@ -140,6 +166,14 @@ export function ReceiptsClient({
         pending={pending}
         onOpenChange={(open) => !open && setDialog(null)}
         onRefund={submitRefund}
+      />
+
+      <VoidDialog
+        receipt={dialog?.name === "void" ? dialog.receipt : null}
+        currency={currency}
+        pending={pending}
+        onOpenChange={(open) => !open && setDialog(null)}
+        onVoid={submitVoid}
       />
     </div>
   );

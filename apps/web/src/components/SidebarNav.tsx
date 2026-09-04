@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { NavIcon } from "@/components/NavIcon";
-import { NAV_GROUPS, isRouteActive } from "@/components/nav-items";
+import { accessibleGroups, isRouteActive, type NavAccess } from "@/components/nav-items";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,21 +13,24 @@ import { cn } from "@/lib/utils";
  *
  * Shared by the desktop sidebar and the phone "More" sheet — `onNavigate` is
  * how the sheet closes itself once a route is picked.
+ *
+ * Filtering happens in `accessibleGroups` rather than here so the sidebar, the
+ * More sheet and the pages' own gates all agree on who may go where; a link the
+ * destination would refuse is a link that should never have been drawn.
  */
 export function SidebarNav({
-  isManager,
+  access,
   onNavigate,
 }: {
-  isManager: boolean;
+  access: NavAccess | null;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
 
   return (
     <nav className="flex flex-col gap-5">
-      {NAV_GROUPS.map((group) => {
-        const items = group.items.filter((i) => !i.managerOnly || isManager);
-        if (items.length === 0) return null;
+      {accessibleGroups(access).map((group) => {
+        const items = group.items;
 
         return (
           <div key={group.title} className="flex flex-col gap-1">

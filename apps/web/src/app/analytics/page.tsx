@@ -1,5 +1,8 @@
+import { AccessGate } from "@/components/AccessGate";
 import { Shell } from "@/components/Shell";
+import { canAccessRoute } from "@/components/nav-items";
 import { createClient } from "@/lib/supabase/server";
+import { getTenantContext, navAccess } from "@/lib/tenant";
 import { AnalyticsClient } from "./AnalyticsClient";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +30,22 @@ export default async function AnalyticsPage() {
   let dailySales = DEMO_DAILY;
   let currency = "USD";
   let shopName = "Demo Retail Shop";
+
+  // Signed out this stays the demo preview. Signed in and standing in a
+  // warehouse, every series here would be empty — sales are location-scoped —
+  // and the demo fallback below would quietly fill the charts with invented
+  // numbers, which is worse than saying the screen doesn't apply.
+  const ctx = await getTenantContext();
+  if (ctx) {
+    const access = navAccess(ctx);
+    if (!canAccessRoute("/analytics", access)) {
+      return (
+        <Shell shopName={ctx.shopName}>
+          <AccessGate href="/analytics" access={access} />
+        </Shell>
+      );
+    }
+  }
 
   try {
     const supabase = await createClient();

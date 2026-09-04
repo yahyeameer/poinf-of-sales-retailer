@@ -22,6 +22,33 @@ interface Outcome {
   reason?: string;
 }
 
+/**
+ * Every attempt is written to report_deliveries, whatever happened.
+ *
+ * Outcomes used to exist only in this response, which on a cron run nobody
+ * reads. A shop owner asking "did last week's report go out?" had no way to
+ * find out, and a send failing every week for a month looked exactly like one
+ * that worked. For something whose whole purpose is to arrive unprompted,
+ * silent failure is the failure mode that matters.
+ *
+ * Logging is deliberately best-effort: a report that was emailed successfully
+ * must not be reported as failed because the bookkeeping row would not write.
+ */
+async function record(
+  admin: ReturnType<typeof serviceClient>,
+  row: {
+    tenant_id: string;
+    period_end: string;
+    status: Outcome["status"];
+    recipient?: string | null;
+    body?: string | null;
+    reason?: string | null;
+  },
+): Promise<void> {
+  const { error } = await admin.from("report_deliveries").insert({ kind: "weekly", ...row });
+  if (error) console.error("weekly-report: could not log delivery", { row, error: error.message });
+}
+
 async function writeRecap(anthropic: Anthropic, stats: unknown): Promise<string> {
   const message = await anthropic.messages.create({
     model: Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5",
@@ -85,9 +112,34 @@ Deno.serve(async (req) => {
   const { data: tenants, error } = await query;
   if (error) return json({ error: error.message }, 500);
 
+  // Which week this run is about. Asked of the database rather than computed
+  // here, so the job, the log and the dashboard cannot disagree about which
+  // Sunday a row belongs to.
+  const { data: periodEnd, error: periodError } = await admin.rpc("last_report_period_end");
+  if (periodError) return json({ error: periodError.message }, 500);
+  const period_end = periodEnd as string;
+
+  // Shops already emailed about this week. The unique index would refuse a
+  // second 'sent' row anyway, but that is a backstop against double-sending
+  // the row — this is what stops us double-sending the *email*, which the
+  // database cannot undo.
+  const { data: alreadySent } = await admin
+    .from("report_deliveries")
+    .select("tenant_id")
+    .eq("kind", "weekly")
+    .eq("period_end", period_end)
+    .eq("status", "sent");
+
+  const done = new Set((alreadySent ?? []).map((r: { tenant_id: string }) => r.tenant_id));
+
   const results: Outcome[] = [];
 
   for (const tenant of tenants ?? []) {
+    if (done.has(tenant.id)) {
+      results.push({ tenant_id: tenant.id, status: "skipped", reason: "already sent this week" });
+      continue;
+    }
+
     try {
       const { data: stats, error: statsError } = await admin.rpc("weekly_report_stats", {
         p_tenant_id: tenant.id,
@@ -97,6 +149,12 @@ Deno.serve(async (req) => {
       // A shop that sold nothing does not need a cheerful email about it.
       if (!stats || Number(stats.transactions_this_week ?? 0) === 0) {
         results.push({ tenant_id: tenant.id, status: "skipped", reason: "no sales this week" });
+        await record(admin, {
+          tenant_id: tenant.id,
+          period_end,
+          status: "skipped",
+          reason: "no sales this week",
+        });
         continue;
       }
 
@@ -110,21 +168,44 @@ Deno.serve(async (req) => {
       const recipient = owners?.[0]?.email;
       if (!recipient) {
         results.push({ tenant_id: tenant.id, status: "skipped", reason: "no owner email" });
+        await record(admin, {
+          tenant_id: tenant.id,
+          period_end,
+          status: "skipped",
+          reason: "no owner email",
+        });
         continue;
       }
 
       const recap = await writeRecap(anthropic, stats);
       await sendEmail(recipient, `${tenant.name}: last week in numbers`, recap);
 
+      // Logged only after the email is away, so a row saying "sent" always
+      // means an email actually left. The reverse order would let a crash
+      // between the two mark a report delivered that nobody received.
       results.push({ tenant_id: tenant.id, status: "sent" });
+      await record(admin, {
+        tenant_id: tenant.id,
+        period_end,
+        status: "sent",
+        recipient,
+        body: recap,
+      });
     } catch (err) {
       // One shop's failure must not stop the run for the rest.
       console.error("weekly-report failed", { tenant_id: tenant.id, error: String(err) });
       results.push({ tenant_id: tenant.id, status: "failed", reason: String(err) });
+      await record(admin, {
+        tenant_id: tenant.id,
+        period_end,
+        status: "failed",
+        reason: String(err),
+      });
     }
   }
 
   return json({
+    period_end,
     processed: results.length,
     sent: results.filter((r) => r.status === "sent").length,
     results,

@@ -1,7 +1,7 @@
 "use client";
 
 import { formatMoney } from "@ai-pos/shared";
-import { Eye, MessageCircle, ReceiptText, RotateCcw } from "lucide-react";
+import { Ban, Eye, MessageCircle, ReceiptText, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { LocalTime } from "@/components/LocalTime";
+import { LocalTime, useIsMounted } from "@/components/LocalTime";
 
 import type { Receipt } from "./types";
+
+/** Matches the window void_sale() enforces for cashiers. */
+const CASHIER_VOID_WINDOW_MS = 5 * 60 * 1000;
 
 /**
  * Sales history. A refund is a row in the same list as the sale it reverses,
@@ -28,17 +31,36 @@ export function ReceiptsTable({
   receipts,
   currency,
   canRefund,
+  canVoidAny,
   onView,
   onRefund,
+  onVoid,
   whatsAppLink,
 }: {
   receipts: Receipt[];
   currency: string;
   canRefund: boolean;
+  /** True for owners and managers, who may void any of the day's sales. */
+  canVoidAny: boolean;
   onView: (receipt: Receipt) => void;
   onRefund: (receipt: Receipt) => void;
+  onVoid: (receipt: Receipt) => void;
   whatsAppLink: (receipt: Receipt) => string;
 }) {
+  // A cashier's five-minute window depends on the current time, which the
+  // server and the browser will not agree on. Deciding after mount keeps the
+  // two renders identical — the same gate <LocalTime> uses. The cost is that
+  // the button appears a beat late for cashiers; the alternative is a
+  // hydration mismatch on every receipts page load.
+  const mounted = useIsMounted();
+
+  function canVoid(r: Receipt): boolean {
+    if (r.voided || r.isRefund) return false;
+    if (canVoidAny) return true;
+    if (!mounted || !r.isOwnSale) return false;
+    return Date.now() - new Date(r.created_at).getTime() < CASHIER_VOID_WINDOW_MS;
+  }
+
   if (receipts.length === 0) {
     return (
       <EmptyState
@@ -49,8 +71,8 @@ export function ReceiptsTable({
     );
   }
 
-  // The actions are the same three on both layouts, so they are written once
-  // rather than kept in step by hand.
+  // The actions are the same on both layouts, so they are written once rather
+  // than kept in step by hand.
   const actions = (r: Receipt, block?: boolean) => (
     <>
       <Button
@@ -74,6 +96,19 @@ export function ReceiptsTable({
         >
           <RotateCcw />
           Refund
+        </Button>
+      )}
+
+      {canVoid(r) && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={block ? "flex-1" : undefined}
+          onClick={() => onVoid(r)}
+        >
+          <Ban />
+          Void
         </Button>
       )}
 
