@@ -16,7 +16,7 @@ interface StaffRow {
   login_enabled: boolean;
   location_id: string | null;
   created_at: string;
-  pin_hash: string | null;
+  has_pin: boolean;
 }
 
 export default async function StaffPage() {
@@ -29,7 +29,7 @@ export default async function StaffPage() {
 
   const { data, error } = await supabase
     .from("users")
-    .select("id, name, email, role, is_active, login_enabled, location_id, created_at, pin_hash")
+    .select("id, name, email, role, is_active, login_enabled, location_id, created_at, has_pin")
     .order("is_active", { ascending: false })
     .order("created_at", { ascending: true });
 
@@ -37,9 +37,10 @@ export default async function StaffPage() {
     console.error("[staff] query failed:", error);
   }
 
-  // pin_hash never reaches the browser. Whether someone *has* a PIN is what the
-  // page needs; the hash itself is not the client's business, and shipping it
-  // would put a bcrypt digest per employee into the page source.
+  // has_pin is a generated column (20260904000100_protect_pin_hash.sql). The
+  // hash itself is no longer selectable at all — `authenticated` holds column
+  // grants on public.users that leave pin_hash out — so this page asks the
+  // only question it ever had: is a PIN set.
   const staff: StaffMember[] = ((data ?? []) as StaffRow[]).map((row) => ({
     id: row.id,
     name: row.name,
@@ -47,7 +48,7 @@ export default async function StaffPage() {
     role: row.role,
     is_active: row.is_active,
     login_enabled: row.login_enabled,
-    has_pin: row.pin_hash !== null,
+    has_pin: row.has_pin,
     location_id: row.location_id,
     created_at: row.created_at,
   }));

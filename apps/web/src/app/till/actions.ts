@@ -1,9 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 import { createClient } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/tenant";
+import {
+  TILL_CASHIER_COOKIE,
+  TILL_SESSION_MAX_AGE,
+  getTillCashier,
+  listTillStaff,
+} from "@/lib/till-session";
 
 export interface ActionResult<T = undefined> {
   ok: boolean;
@@ -121,6 +128,68 @@ export async function getShiftReport(shiftId: string): Promise<ActionResult<unkn
   return { ok: true, message: "", data };
 }
 
+// --- who is on the till ---------------------------------------------------
+
+/**
+ * Take over the till by PIN.
+ *
+ * A shop phone is shared: one account stays signed in and staff swap on it, so
+ * `auth.uid()` names the device rather than the person. verify_staff_pin() is
+ * the schema's answer and is SECURITY DEFINER so `pin_hash` is never
+ * selectable by a client; it is also tenant-scoped, so a PIN from another shop
+ * cannot verify here.
+ *
+ * On success the cashier's id goes into an httpOnly cookie, which the browser
+ * can neither read nor write — so nobody can nominate a cashier without the
+ * PIN.
+ */
+export async function unlockTill(userId: string, pin: string): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  if (!ctx) return { ok: false, message: "You need to sign in first." };
+  if (!userId) return { ok: false, message: "Pick who is on the till." };
+  if (!/^[0-9]{4,8}$/.test(pin)) return { ok: false, message: "A PIN is 4 to 8 digits." };
+
+  // Confirm the person is on this shop's till roster before spending a PIN
+  // check on them, so an id that was never eligible fails as "not on the till"
+  // rather than as a wrong PIN.
+  const staff = await listTillStaff(ctx.locationId);
+  const member = staff.find((s) => s.id === userId);
+  if (!member) return { ok: false, message: "That person can't take the till here." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("verify_staff_pin", {
+    p_user_id: userId,
+    p_pin: pin,
+  });
+
+  if (error) return { ok: false, message: readable(error) };
+
+  // Deliberately the same message whether the PIN was wrong or the account is
+  // not eligible: a till stands where customers can see it, and a response
+  // that distinguishes the two turns the keypad into a way to enumerate staff.
+  if (data !== true) return { ok: false, message: "That PIN didn't match." };
+
+  const store = await cookies();
+  store.set(TILL_CASHIER_COOKIE, userId, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: TILL_SESSION_MAX_AGE,
+  });
+
+  revalidatePath("/till");
+  return { ok: true, message: `${member.name} is on the till.` };
+}
+
+/** Hand the till back. Does not close the shift — the drawer is still open. */
+export async function lockTill(): Promise<ActionResult> {
+  const store = await cookies();
+  store.delete(TILL_CASHIER_COOKIE);
+  revalidatePath("/till");
+  return { ok: true, message: "Till locked." };
+}
+
 // --- the sale -------------------------------------------------------------
 
 export async function completeSale(input: {
@@ -138,10 +207,18 @@ export async function completeSale(input: {
 
   const supabase = await createClient();
 
+  // Whoever unlocked the till by PIN gets the credit, falling back to the
+  // signed-in account when nobody has. Read here rather than accepted from the
+  // caller: the cookie is httpOnly and set only by unlockTill(), so a client
+  // cannot attribute a sale to someone else. process_sale re-checks that the
+  // id is active staff of this shop regardless.
+  const cashier = await getTillCashier(ctx.locationId);
+
   // client_id is generated on the device before the first attempt and reused on
   // every retry, so a response lost to a dropped connection replays into the
   // same row rather than charging the customer twice.
   const { data, error } = await supabase.rpc("process_sale", {
+    p_cashier_id: cashier?.id ?? null,
     p_client_id: input.clientId,
     p_items: input.items.map((i) => ({
       product_id: i.productId,
