@@ -18,6 +18,10 @@
 // cannot live in .env, which is gitignored and so would not survive a clone.
 process.env.NEXT_IGNORE_INCORRECT_LOCKFILE = "1";
 
+// From /config, not the package root: the root re-export is deprecated in v10
+// and removed in v11, and it warns on every build.
+import { withSentryConfig } from "@sentry/nextjs/config";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -61,4 +65,52 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Sentry.
+ *
+ * withSentryConfig is applied unconditionally — it is a build-time wrapper, and
+ * whether anything is *reported* is decided by NEXT_PUBLIC_SENTRY_DSN at
+ * runtime (see src/lib/sentry-shared.ts). Wrapping without a DSN costs a build
+ * step and produces an app that never phones home.
+ *
+ * Source map upload is the part that genuinely needs credentials, so it is the
+ * part that is conditional. Without SENTRY_AUTH_TOKEN the plugin would try,
+ * fail, and — depending on the version — either warn loudly on every build or
+ * fail it outright. A contributor cloning this repo has no token and should not
+ * have to care, so uploads are switched off unless an org, a project and a
+ * token are all present. Stack traces still arrive; they are just minified
+ * until someone sets those three.
+ */
+const sentryUploadConfigured = Boolean(
+  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT,
+);
+
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  silent: !process.env.CI,
+  sourcemaps: {
+    disable: !sentryUploadConfigured,
+    // Uploaded maps are deleted from the bundle afterwards. Leaving them served
+    // would hand anyone the unminified source of the till and the pricing logic.
+    deleteSourcemapsAfterUpload: true,
+  },
+
+  // Routes browser reports through this app's own origin instead of straight to
+  // ingest.sentry.io. Ad blockers and the restrictive DNS common on shop wifi
+  // block that host by name, and a monitoring tool that silently drops reports
+  // from exactly the flaky networks you most want to hear about is worse than
+  // none.
+  tunnelRoute: "/monitoring",
+
+  webpack: {
+    // Strips Sentry's own debug logging from the client bundle.
+    treeshake: { removeDebugLogging: true },
+
+    // Vercel cancels a function the moment it responds, which can be before a
+    // queued event has been flushed. This registers the hook that waits.
+    automaticVercelMonitors: true,
+  },
+});

@@ -7,7 +7,14 @@ import { NextResponse, type NextRequest } from "next/server";
 // starts with "/", every path counted as public and the redirect below never
 // ran — the whole gate was dead. RLS still refused the data, so the pages
 // rendered empty rather than leaking, but nobody was ever sent to sign in.
-const PUBLIC_PATHS = new Set(["/login", "/signup"]);
+//
+// "/monitoring" is Sentry's tunnel (tunnelRoute in next.config.mjs) — the
+// endpoint the browser POSTs crash reports to. It has to be public, and for
+// the least obvious reason on this list: the reports that matter most are the
+// ones from a session that has no user, because "the login page threw" is
+// precisely the failure nobody can tell you about. Left gated, those would be
+// redirected to /login and lost.
+const PUBLIC_PATHS = new Set(["/login", "/signup", "/monitoring"]);
 const PUBLIC_PREFIXES = ["/auth/"];
 
 function isPublicPath(pathname: string): boolean {

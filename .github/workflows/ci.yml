@@ -42,8 +42,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Named workspaces rather than a bare `npm run test`: packages/db's
+      # tests need Docker and a full Supabase stack (see the note at the
+      # bottom), so a repo-wide run would always fail here.
       - name: Unit tests
-        run: npm run test --workspace @ai-pos/shared
+        run: |
+          npm run test --workspace @ai-pos/shared
+          npm run test --workspace @ai-pos/web
 
       - name: Build
         run: npm run build
