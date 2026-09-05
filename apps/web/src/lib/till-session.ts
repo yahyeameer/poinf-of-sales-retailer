@@ -35,12 +35,17 @@ export interface TillCashier {
   id: string;
   name: string;
   role: "owner" | "manager" | "cashier";
+  /** True when this PIN was issued by someone else and has not been replaced.
+   *  The till accepts it once and asks for a new one in the same step, rather
+   *  than letting a shift start on a PIN a manager also knows. */
+  mustChangePin: boolean;
 }
 
 interface TillStaffRow {
   id: string;
   name: string | null;
   role: TillCashier["role"];
+  must_change_pin: boolean;
 }
 
 /**
@@ -61,6 +66,7 @@ export async function listTillStaff(locationId: string | null): Promise<TillCash
     id: r.id,
     name: r.name ?? "Unnamed",
     role: r.role,
+    mustChangePin: r.must_change_pin ?? false,
   }));
 }
 

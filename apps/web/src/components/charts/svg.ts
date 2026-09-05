@@ -66,12 +66,19 @@ export function barPath(
   w: number,
   h: number,
   r: number,
-  dir: "up" | "right" = "up",
+  dir: "up" | "right" | "down" = "up",
 ): string {
   if (w <= 0 || h <= 0) return "";
   if (dir === "up") {
     const rr = Math.min(r, w / 2, h);
     return `M${x},${y + h} L${x},${y + rr} Q${x},${y} ${x + rr},${y} L${x + w - rr},${y} Q${x + w},${y} ${x + w},${y + rr} L${x + w},${y + h} Z`;
+  }
+  if (dir === "down") {
+    // Hangs below a baseline, so the rounded end is the bottom and the square
+    // end sits against the zero line — the mirror of "up", and needed as soon
+    // as a chart can go negative.
+    const rr = Math.min(r, w / 2, h);
+    return `M${x},${y} L${x},${y + h - rr} Q${x},${y + h} ${x + rr},${y + h} L${x + w - rr},${y + h} Q${x + w},${y + h} ${x + w},${y + h - rr} L${x + w},${y} Z`;
   }
   // grows right: square on the left (baseline), rounded on the right end
   const rr = Math.min(r, h / 2, w);

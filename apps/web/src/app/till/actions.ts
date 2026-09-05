@@ -16,6 +16,10 @@ export interface ActionResult<T = undefined> {
   ok: boolean;
   message: string;
   data?: T;
+  /** Set when the caller needs to do something specific rather than just show
+   *  the message. Currently only "must_change_pin", which is a correct PIN
+   *  that cannot be used until it is replaced. */
+  code?: "must_change_pin";
 }
 
 /**
@@ -169,6 +173,18 @@ export async function unlockTill(userId: string, pin: string): Promise<ActionRes
   // that distinguishes the two turns the keypad into a way to enumerate staff.
   if (data !== true) return { ok: false, message: "That PIN didn't match." };
 
+  // Correct PIN, but it was issued by someone else and has not been replaced.
+  // The cookie is deliberately not set: whoever issued it also knows it, so a
+  // shift must not start until it has been changed. The gate takes this as its
+  // cue to ask for a new one, having just proved the old one.
+  if (member.mustChangePin) {
+    return {
+      ok: false,
+      code: "must_change_pin",
+      message: "That PIN was issued to you. Choose your own to carry on.",
+    };
+  }
+
   const store = await cookies();
   store.set(TILL_CASHIER_COOKIE, userId, {
     httpOnly: true,
@@ -180,6 +196,57 @@ export async function unlockTill(userId: string, pin: string): Promise<ActionRes
 
   revalidatePath("/till");
   return { ok: true, message: `${member.name} is on the till.` };
+}
+
+/**
+ * Replace your own PIN, from the till, and take over in the same step.
+ *
+ * change_own_staff_pin() takes the current PIN as its authorisation, so this
+ * needs no manager and no elevated role — which is the point. A cashier who
+ * has just been handed a one-time PIN can make it theirs at the counter
+ * instead of waiting for someone with a login.
+ *
+ * The unlock is folded in because the alternative is asking for the new PIN
+ * twice in a row: once to set it, once to log in with it.
+ */
+export async function changeOwnTillPin(
+  userId: string,
+  currentPin: string,
+  newPin: string,
+): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  if (!ctx) return { ok: false, message: "You need to sign in first." };
+  if (!/^[0-9]{4,8}$/.test(newPin)) {
+    return { ok: false, message: "A PIN is 4 to 8 digits." };
+  }
+  if (newPin === currentPin) {
+    return { ok: false, message: "Pick a PIN different from the one you were given." };
+  }
+
+  const staff = await listTillStaff(ctx.locationId);
+  const member = staff.find((s) => s.id === userId);
+  if (!member) return { ok: false, message: "That person can't take the till here." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("change_own_staff_pin", {
+    p_user_id: userId,
+    p_current_pin: currentPin,
+    p_new_pin: newPin,
+  });
+
+  if (error) return { ok: false, message: readable(error) };
+
+  const store = await cookies();
+  store.set(TILL_CASHIER_COOKIE, userId, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: TILL_SESSION_MAX_AGE,
+  });
+
+  revalidatePath("/till");
+  return { ok: true, message: `PIN changed. ${member.name} is on the till.` };
 }
 
 /** Hand the till back. Does not close the shift — the drawer is still open. */

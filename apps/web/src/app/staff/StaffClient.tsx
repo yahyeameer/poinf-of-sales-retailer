@@ -13,6 +13,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LocalTime } from "@/components/LocalTime";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -34,18 +35,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   clearStaffPin,
   saveStaff,
   setStaffActive,
   setStaffPin,
+  requireStaffPinChange,
   type StaffRole,
 } from "@/app/staff-actions";
 import type { ShopLocation } from "@/lib/tenant";
@@ -60,7 +54,29 @@ export interface StaffMember {
   has_pin: boolean;
   location_id: string | null;
   created_at: string;
+  /** From v_staff_pin_status. See staff/page.tsx for why these are not
+   *  derived in the browser. */
+  pin_set_at: string | null;
+  pin_last_used_at: string | null;
+  must_change_pin: boolean;
+  pin_never_used: boolean;
+  can_manage_pin: boolean;
 }
+
+export interface PinEvent {
+  id: string;
+  action: string;
+  created_at: string;
+  actor: string;
+  target: string;
+}
+
+const PIN_EVENT_WORDING: Record<string, string> = {
+  issued: "issued a PIN to",
+  cleared: "removed the PIN of",
+  reset_required: "asked for a new PIN from",
+  changed_by_self: "changed their own PIN",
+};
 
 const ROLE_HELP: Record<StaffRole, string> = {
   owner: "Everything, including staff and shop settings.",
@@ -74,11 +90,15 @@ export function StaffClient({
   staff,
   locations,
   canEdit,
+  canManageAnyPin,
+  pinEvents,
   currentUserId,
 }: {
   staff: StaffMember[];
   locations: ShopLocation[];
   canEdit: boolean;
+  canManageAnyPin: boolean;
+  pinEvents: PinEvent[];
   currentUserId: string;
 }) {
   const router = useRouter();
@@ -192,9 +212,15 @@ export function StaffClient({
         )}
       </div>
 
+      {/* Two different read-only states now. A manager cannot edit staff
+          records but can issue and clear cashiers' PINs, and telling them they
+          can only look would send them to find the owner for something they
+          are able to do themselves. */}
       {!canEdit && (
         <div className="rounded-xl border border-border bg-muted p-4 text-sm text-muted-foreground">
-          Only an owner can add or change staff. You can see who&apos;s on the team.
+          {canManageAnyPin
+            ? "Only an owner can add or change staff records. You can still set and clear till PINs for cashiers."
+            : "Only an owner can add or change staff. You can see who's on the team."}
         </div>
       )}
 
@@ -260,69 +286,41 @@ export function StaffClient({
           {staff.length === 0 ? (
             <EmptyState icon={UserPlus} title="Nobody on the team yet" description="Add a cashier or manager and they will show up here." />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Works at</TableHead>
-                  <TableHead>Access</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staff.map((member) => {
-                  const location = locations.find((l) => l.id === member.location_id);
-                  const isSelf = member.id === currentUserId;
-                  const isLastOwner = member.role === "owner" && owners.length === 1;
+            /* A list of cards, not a table.
+             *
+             * It was a five-column table with no horizontal scroll and no
+             * mobile layout, so on a phone the Actions column — which holds
+             * every PIN control there is — was simply off the right edge of
+             * the screen. The controls existed and could not be reached, which
+             * is indistinguishable from their not existing.
+             *
+             * Cards rather than a scrolling table because this is a handful of
+             * rows with several actions each, which is the shape a table is
+             * worst at. Each person is one block that reads top to bottom on a
+             * phone and sits two-up on a laptop. */
+            <ul className="divide-y divide-border">
+              {staff.map((member) => {
+                const location = locations.find((l) => l.id === member.location_id);
+                const isSelf = member.id === currentUserId;
+                const isLastOwner =
+                  member.role === "owner" &&
+                  staff.filter((s) => s.role === "owner" && s.is_active).length === 1;
 
-                  return (
-                    <TableRow key={member.id} data-inactive={!member.is_active}>
-                      <TableCell>
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
-                            {(member.name ?? "?").charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="truncate font-semibold text-foreground">
-                              {member.name ?? "Unnamed"}
-                              {isSelf && (
-                                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                                  (you)
-                                </span>
-                              )}
-                            </div>
-                            {member.email && (
-                              <div className="truncate text-xs text-muted-foreground">{member.email}</div>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge variant={member.role === "owner" ? "default" : "secondary"}>
-                          {member.role}
-                        </Badge>
-                      </TableCell>
-
-                      <TableCell className="text-sm text-muted-foreground">
-                        {location ? location.name : "All locations"}
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1.5">
-                          {member.login_enabled && (
-                            <Badge variant="outline" className="gap-1 text-xs">
-                              <UserCheck className="h-3 w-3" /> Dashboard
-                            </Badge>
-                          )}
-                          {member.has_pin && (
-                            <Badge variant="outline" className="gap-1 text-xs">
-                              <KeyRound className="h-3 w-3" /> Till PIN
-                            </Badge>
-                          )}
-                          {!member.login_enabled && !member.has_pin && (
-                            <span className="text-xs text-muted-foreground">No access yet</span>
+                return (
+                  <li
+                    key={member.id}
+                    data-inactive={!member.is_active}
+                    className="p-4 data-[inactive=true]:opacity-60 sm:px-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold">{member.name || "Unnamed"}</span>
+                          <Badge variant={member.role === "owner" ? "default" : "secondary"}>
+                            {member.role}
+                          </Badge>
+                          {isSelf && (
+                            <span className="text-xs text-muted-foreground">(you)</span>
                           )}
                           {!member.is_active && (
                             <Badge variant="destructive" className="text-xs">
@@ -330,24 +328,71 @@ export function StaffClient({
                             </Badge>
                           )}
                         </div>
-                      </TableCell>
+                        <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                          {member.email || "No email — till only"}
+                          {" · "}
+                          {location ? location.name : "All locations"}
+                        </p>
+                      </div>
 
-                      <TableCell className="text-right">
+                      <div className="flex flex-wrap gap-1.5">
+                        {member.login_enabled && (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <UserCheck className="h-3 w-3" /> Dashboard
+                          </Badge>
+                        )}
+                        {member.has_pin && (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <KeyRound className="h-3 w-3" /> Till PIN
+                          </Badge>
+                        )}
+                        {!member.login_enabled && !member.has_pin && (
+                          <span className="text-xs text-muted-foreground">No access yet</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* What is true about their PIN, in words rather than a
+                        timestamp nobody reads. A PIN cannot be looked up, so
+                        this is the only visibility anyone gets into it. */}
+                    {member.has_pin && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {member.must_change_pin ? (
+                          <span className="text-warning-foreground">
+                            Must choose a new PIN at the next till unlock.
+                          </span>
+                        ) : member.pin_never_used ? (
+                          "PIN set but never used — they may not have been told it yet."
+                        ) : (
+                          <>
+                            Last used <LocalTime value={member.pin_last_used_at!} format="datetime" />
+                          </>
+                        )}
+                      </p>
+                    )}
+
+                    {(canEdit || member.can_manage_pin) && (
+                      <div className="mt-3 flex flex-wrap gap-2">
                         {canEdit && (
-                          <div className="flex justify-end gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={pending}
-                              onClick={() => openEdit(member)}
-                              className="gap-1.5"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Edit
-                            </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pending}
+                            onClick={() => openEdit(member)}
+                            className="gap-1.5"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                        )}
 
+                        {/* can_manage_pin comes from the database, so a manager
+                            is never offered a button on an owner's row that
+                            the RPC would then refuse. */}
+                        {member.can_manage_pin && (
+                          <>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               disabled={pending}
                               onClick={() => {
@@ -361,6 +406,18 @@ export function StaffClient({
                               {member.has_pin ? "Change PIN" : "Set PIN"}
                             </Button>
 
+                            {member.has_pin && !member.must_change_pin && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={pending}
+                                onClick={() => run(() => requireStaffPinChange(member.id))}
+                                title="Keeps the current PIN working, but asks them to pick a new one next time."
+                              >
+                                Ask for a new one
+                              </Button>
+                            )}
+
                             {member.has_pin && (
                               <Button
                                 variant="ghost"
@@ -371,35 +428,71 @@ export function StaffClient({
                                 Clear PIN
                               </Button>
                             )}
-
-                            <Button
-                              variant={member.is_active ? "ghost" : "outline"}
-                              size="sm"
-                              // The database refuses both of these anyway; disabling
-                              // here explains why instead of waiting for an error.
-                              disabled={pending || (member.is_active && (isSelf || isLastOwner))}
-                              title={
-                                isSelf
-                                  ? "You cannot deactivate yourself"
-                                  : isLastOwner
-                                    ? "This is the shop's only owner"
-                                    : undefined
-                              }
-                              onClick={() => run(() => setStaffActive(member.id, !member.is_active))}
-                            >
-                              {member.is_active ? "Deactivate" : "Reactivate"}
-                            </Button>
-                          </div>
+                          </>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+
+                        {canEdit && (
+                          <Button
+                            variant={member.is_active ? "ghost" : "outline"}
+                            size="sm"
+                            // The database refuses both of these anyway; disabling
+                            // here explains why instead of waiting for an error.
+                            disabled={pending || (member.is_active && (isSelf || isLastOwner))}
+                            title={
+                              member.is_active && isSelf
+                                ? "You cannot deactivate yourself."
+                                : member.is_active && isLastOwner
+                                  ? "A shop needs at least one active owner."
+                                  : undefined
+                            }
+                            onClick={() => run(() => setStaffActive(member.id, !member.is_active))}
+                          >
+                            {member.is_active ? "Deactivate" : "Reactivate"}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </CardContent>
       </Card>
+
+      {/* ---------- who changed whose PIN ----------
+           A trail nobody can read is just storage. Owners and managers see it;
+           RLS returns nothing to anyone else, so this simply does not render
+           for them rather than needing a role check here. */}
+      {pinEvents.length > 0 && (
+        <Card>
+          <CardHeader className="border-b border-border pb-3">
+            <CardTitle className="text-base font-semibold">PIN activity</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Sales are recorded against whoever unlocks the till, so it matters who can
+              hand out a PIN.
+            </p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ul className="divide-y divide-border">
+              {pinEvents.map((e) => (
+                <li key={e.id} className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 px-4 py-2.5 text-sm sm:px-5">
+                  <span className="font-medium">{e.actor}</span>
+                  <span className="text-muted-foreground">
+                    {PIN_EVENT_WORDING[e.action] ?? e.action}
+                  </span>
+                  {e.action !== "changed_by_self" && (
+                    <span className="font-medium">{e.target}</span>
+                  )}
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    <LocalTime value={e.created_at} format="datetime" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ---------- add / edit ---------- */}
       <Dialog open={formOpen} onOpenChange={(open) => !open && closeForm()}>

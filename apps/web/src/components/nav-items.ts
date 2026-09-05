@@ -10,6 +10,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Package,
+  Receipt,
   ReceiptText,
   ScanLine,
   Settings,
@@ -88,6 +89,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/suppliers", label: "Suppliers", icon: Truck, managerOnly: true },
       { href: "/purchase-orders", label: "Purchase Orders", icon: ClipboardListIcon, managerOnly: true },
+      // managerOnly is not decoration here: expenses include wages, and the
+      // RLS policy on the table refuses a cashier the rows outright. This flag
+      // keeps the nav honest about that rather than offering a page that would
+      // render empty.
+      { href: "/expenses", label: "Expenses", icon: Receipt, managerOnly: true },
     ],
   },
   {
