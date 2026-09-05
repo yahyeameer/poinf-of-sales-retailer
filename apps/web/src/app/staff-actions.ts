@@ -19,7 +19,7 @@ export type StaffRole = "owner" | "manager" | "cashier";
  */
 function readableError(error: { message: string; code?: string } | null): string {
   if (!error) return "Something went wrong.";
-  if (error.code === "42501") return "Only an owner can manage staff.";
+  if (error.code === "42501") return "You are not allowed to do that.";
   return error.message;
 }
 
@@ -98,4 +98,26 @@ export async function clearStaffPin(id: string): Promise<ActionResult> {
 
   revalidateStaff();
   return { ok: true, message: "PIN removed. They can no longer unlock the till." };
+}
+
+/**
+ * "I think someone watched them type it."
+ *
+ * Leaves the PIN working so a shift in progress is not interrupted, and makes
+ * the till ask for a new one at the next unlock.
+ */
+export async function requireStaffPinChange(id: string): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  if (!ctx) return { ok: false, message: "You need to sign in first." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("require_staff_pin_change", { p_user_id: id });
+
+  if (error) return { ok: false, message: readableError(error) };
+
+  revalidateStaff();
+  return {
+    ok: true,
+    message: "They'll be asked to choose a new PIN next time they open the till.",
+  };
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { formatMoney, type CartLine } from "@ai-pos/shared";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
@@ -11,6 +13,117 @@ interface Totals {
   subtotalCents: number;
   taxCents: number;
   totalCents: number;
+}
+
+/**
+ * One line, with its own state because the quantity can be typed as well as
+ * stepped.
+ *
+ * Stepping is right for one or two more; it is wrong for "eight of these",
+ * which was eight taps on a 32px target. Tapping the number turns it into an
+ * input, so the common case stays one tap and the awkward case stops being a
+ * drum solo.
+ */
+function CartRow({
+  line: l,
+  currency,
+  onQuantity,
+}: {
+  line: CartLine;
+  currency: string;
+  onQuantity: (productId: string, quantity: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  function commit() {
+    const n = Number(draft);
+    // A blank or nonsense entry means "leave it alone", not "remove the line" —
+    // deleting a line is a deliberate action with its own button.
+    if (Number.isFinite(n) && n > 0) onQuantity(l.productId, n);
+    setEditing(false);
+  }
+
+  return (
+    <li className="rounded-lg border border-border bg-card p-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.name}</span>
+        <span className="text-sm font-bold tabular-nums">
+          {formatMoney(Math.round(l.quantity * l.unitPriceCents), currency)}
+        </span>
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-touch"
+          aria-label={`One fewer ${l.name}`}
+          onClick={() => onQuantity(l.productId, l.quantity - 1)}
+        >
+          <Minus className="size-5" />
+        </Button>
+
+        {editing ? (
+          <input
+            autoFocus
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            aria-label={`Quantity of ${l.name}`}
+            className="h-12 w-16 rounded-lg border border-primary/45 bg-background text-center text-base font-semibold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(String(l.quantity));
+              setEditing(true);
+            }}
+            aria-label={`Quantity of ${l.name}, ${l.quantity}. Tap to type a different amount.`}
+            className="h-12 min-w-14 rounded-lg text-center text-base font-semibold tabular-nums hover:bg-muted"
+          >
+            {l.quantity}
+          </button>
+        )}
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-touch"
+          aria-label={`One more ${l.name}`}
+          onClick={() => onQuantity(l.productId, l.quantity + 1)}
+        >
+          <Plus className="size-5" />
+        </Button>
+
+        <span className="ml-1 flex-1 truncate text-xs tabular-nums text-muted-foreground">
+          @ {formatMoney(l.unitPriceCents, currency)}
+        </span>
+
+        {/* Pushed to the far edge, away from the minus it used to sit beside.
+            Removing a line and reducing it by one are one tap apart otherwise,
+            and only one of them is undoable by tapping again. */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-touch"
+          aria-label={`Remove ${l.name}`}
+          onClick={() => onQuantity(l.productId, 0)}
+          className="text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="size-5" />
+        </Button>
+      </div>
+    </li>
+  );
 }
 
 /**
@@ -66,53 +179,12 @@ export function CartPanel({
         ) : (
           <ul className="flex flex-col gap-2">
             {lines.map((l) => (
-              <li key={l.productId} className="rounded-lg border border-border bg-card p-2.5">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{l.name}</span>
-                  <span className="text-sm font-bold tabular-nums">
-                    {formatMoney(Math.round(l.quantity * l.unitPriceCents), currency)}
-                  </span>
-                </div>
-
-                <div className="mt-2 flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={`One fewer ${l.name}`}
-                    onClick={() => onQuantity(l.productId, l.quantity - 1)}
-                  >
-                    <Minus />
-                  </Button>
-                  <span className="min-w-8 text-center text-sm font-semibold tabular-nums">
-                    {l.quantity}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={`One more ${l.name}`}
-                    onClick={() => onQuantity(l.productId, l.quantity + 1)}
-                  >
-                    <Plus />
-                  </Button>
-
-                  <span className="ml-1 flex-1 truncate text-xs tabular-nums text-muted-foreground">
-                    @ {formatMoney(l.unitPriceCents, currency)}
-                  </span>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Remove ${l.name}`}
-                    onClick={() => onQuantity(l.productId, 0)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              </li>
+              <CartRow
+                key={l.productId}
+                line={l}
+                currency={currency}
+                onQuantity={onQuantity}
+              />
             ))}
           </ul>
         )}

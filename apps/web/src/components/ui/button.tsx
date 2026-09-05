@@ -56,6 +56,10 @@ const buttonVariants = cva(
         till: "min-h-14 rounded-xl px-8 text-base",
         icon: "size-10",
         "icon-sm": "size-8 rounded-md",
+        // 48px. The floor for something a cashier taps with a thumb, on a
+        // phone, in a hurry — icon-sm is 32px and misses badly enough that
+        // the cart's quantity buttons were regularly hit twice or not at all.
+        "icon-touch": "size-12 rounded-lg",
       },
       /** Full width on phones, intrinsic from `sm` up. */
       block: {
