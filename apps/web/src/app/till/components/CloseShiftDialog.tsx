@@ -1,5 +1,6 @@
 "use client";
 
+import { parseMoneyToCents } from "@ai-pos/shared";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ export function CloseShiftDialog({
             type="button"
             disabled={pending || counted === ""}
             onClick={() =>
-              onCloseShift(Math.round((parseFloat(counted) || 0) * 100), note.trim() || null)
+              onCloseShift(parseMoneyToCents(counted, currency) ?? 0, note.trim() || null)
             }
           >
             {pending ? "Closing…" : "Count and close"}

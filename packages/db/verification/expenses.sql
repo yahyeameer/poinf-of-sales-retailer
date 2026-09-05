@@ -54,6 +54,30 @@ begin
   return n;
 end $$;
 
+create or replace function pg_temp.visible_expenses_view(
+  actor uuid, shop_role text, tenant uuid
+) returns bigint language plpgsql as $$
+declare n bigint;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', actor, 'role', 'authenticated',
+                      'tenant_id', tenant, 'shop_role', shop_role)::text, true);
+  select count(*) into n from public.v_expenses_daily;
+  return n;
+end $$;
+
+create or replace function pg_temp.visible_profit_view(
+  actor uuid, shop_role text, tenant uuid
+) returns bigint language plpgsql as $$
+declare n bigint;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', actor, 'role', 'authenticated',
+                      'tenant_id', tenant, 'shop_role', shop_role)::text, true);
+  select count(*) into n from public.v_profit_daily where revenue_cents <> 0 or expenses_cents <> 0;
+  return n;
+end $$;
+
 \echo ''
 \echo '--- recording ---'
 
@@ -78,10 +102,22 @@ select pg_temp.check(
     'select public.record_expense(''fees'', 0, current_date, null, null)') = 'PS422'
 );
 
+-- Measured against the shop's own today, not the server's.
+--
+-- 20260906000300 gave this a day of slack because nothing recorded where the
+-- shop was, so it had to tolerate any offset. 20260907000100 records the zone,
+-- so current_shop_date() can answer exactly and the guard is back to meaning
+-- what it says. The zone-aware behaviour is covered in verification/timezone.sql;
+-- here the shop is on UTC, so the shop's today and the server's coincide.
 select pg_temp.check(
-  'a future date is refused',
+  'the shop''s own today is accepted',
   pg_temp.attempt(:OWNER, 'owner', :TENANT,
-    'select public.record_expense(''fees'', 500, current_date + 1, null, null)') = 'PS422');
+    'select public.record_expense(''fees'', 500, public.current_shop_date(), null, null)') = 'ok');
+
+select pg_temp.check(
+  'a date past the shop''s today is refused',
+  pg_temp.attempt(:OWNER, 'owner', :TENANT,
+    'select public.record_expense(''fees'', 500, public.current_shop_date() + 1, null, null)') = 'PS422');
 
 select pg_temp.check(
   'the recorder is remembered',
@@ -117,6 +153,34 @@ select pg_temp.check(
   'a cashier cannot delete what they cannot see',
   (select pg_temp.attempt(:CASH, 'cashier', :TENANT, 'delete from public.expenses') = 'ok'
    and pg_temp.visible(:OWNER, 'owner', :TENANT) >= 2));
+
+-- A view does not run as the caller unless it is told to. Postgres evaluates
+-- a view against its OWNER, and RLS on the tables underneath with it, unless
+-- the view carries security_invoker = on. These views are owned by postgres,
+-- so without it they read every shop's rows as a superuser — which is how a
+-- cashier could read the wage bill by selecting the view instead of the table,
+-- and how one shop could read another's takings. Checked as a property of
+-- every view in the schema, not just these three, so the next one added cannot
+-- reintroduce it quietly.
+select pg_temp.check(
+  'every view runs as the caller, not as its owner',
+  not exists (
+    select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'v'
+      and coalesce((select option_value from pg_options_to_table(c.reloptions)
+                    where option_name = 'security_invoker'), 'off') <> 'on'));
+
+select pg_temp.check(
+  'a cashier cannot read the wage bill through the daily view either',
+  pg_temp.visible_expenses_view(:CASH, 'cashier', :TENANT) = 0);
+
+select pg_temp.check(
+  'another shop cannot read this shop''s profit through the view',
+  pg_temp.visible_profit_view(:OWNER, 'owner', 'bbbbbbbb-0000-0000-0000-000000000002') = 0);
+
+select pg_temp.check(
+  'the shop''s own manager still sees the daily view',
+  pg_temp.visible_expenses_view(:MGR, 'manager', :TENANT) >= 1);
 
 reset role;
 

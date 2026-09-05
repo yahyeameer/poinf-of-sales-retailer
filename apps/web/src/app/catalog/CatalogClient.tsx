@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMoney } from "@ai-pos/shared";
+import { formatMoney, parseMoneyToCents } from "@ai-pos/shared";
 import { createProduct } from "@/app/actions";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Button } from "@/components/ui/button";
@@ -90,14 +90,17 @@ export function CatalogClient({
 
   function handleAddProduct(e: React.FormEvent) {
     e.preventDefault();
-    const priceValue = parseFloat(price);
-    if (!name.trim() || !Number.isFinite(priceValue)) return;
+    // Validated with the same function that converts it, so the check and the
+    // stored value cannot disagree — parseFloat accepts "12.5.6" and "1e3",
+    // which parseMoneyToCents does not read the same way.
+    const priceCents = parseMoneyToCents(price, currency);
+    if (!name.trim() || priceCents === null || priceCents < 0) return;
 
     startTransition(async () => {
       const result = await createProduct({
         name,
         barcode: barcode.trim() || null,
-        priceCents: Math.round(priceValue * 100),
+        priceCents,
         openingStock: parseInt(stock, 10) || 0,
         reorderPoint: parseInt(reorder, 10) || 5,
       });

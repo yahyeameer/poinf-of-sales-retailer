@@ -42,7 +42,11 @@ export function RecentTransfers({ recent }: { recent: TransferDoc[] }) {
             description="Moves between your locations appear here once you record one."
           />
         ) : (
-          <Table>
+          // Four columns is wider than a phone. Without a scroll container the
+          // page itself scrolls sideways and the right-hand columns are easy to
+          // miss entirely — the same way the staff table hid its own buttons.
+          <div className="overflow-x-auto">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>When</TableHead>
@@ -77,7 +81,8 @@ export function RecentTransfers({ recent }: { recent: TransferDoc[] }) {
                 );
               })}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

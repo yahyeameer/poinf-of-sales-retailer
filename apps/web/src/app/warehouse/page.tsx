@@ -216,6 +216,10 @@ export default async function WarehousePage() {
                   description="Every line held here is above the level you set for it."
                 />
               ) : (
+                // Four columns on a phone, which is what a picker in a
+                // warehouse is holding. Scrolled inside its own container
+                // rather than dragging the whole page sideways.
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -242,6 +246,7 @@ export default async function WarehousePage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>

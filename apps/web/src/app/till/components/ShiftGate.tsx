@@ -1,5 +1,6 @@
 "use client";
 
+import { parseMoneyToCents } from "@ai-pos/shared";
 import * as React from "react";
 import { Lock } from "lucide-react";
 
@@ -68,7 +69,7 @@ export function ShiftGate({
             size="till"
             block="always"
             disabled={pending}
-            onClick={() => onOpenShift(Math.round((parseFloat(floatInput) || 0) * 100))}
+            onClick={() => onOpenShift(parseMoneyToCents(floatInput, currency) ?? 0)}
           >
             {pending ? "Opening…" : "Open shift"}
           </Button>

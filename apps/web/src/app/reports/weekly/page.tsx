@@ -137,6 +137,10 @@ export default async function WeeklyReportPage() {
               .
             </p>
           ) : (
+            // Six columns. A weekly report is something an owner reads on a
+            // phone in the evening, and without a scroll container the last
+            // columns sit off the edge of the screen.
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -175,6 +179,7 @@ export default async function WeeklyReportPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -42,6 +42,7 @@ export async function updateShopProfile(input: {
   phone: string | null;
   address: string | null;
   taxNumber: string | null;
+  timezone: string;
 }): Promise<ActionResult> {
   const { ctx, error: authError } = await requireOwner();
   if (!ctx) return { ok: false, message: authError! };

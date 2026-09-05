@@ -1,3 +1,4 @@
+import { shopDayIso } from "@ai-pos/shared";
 import { AccessGate } from "@/components/AccessGate";
 import { Shell } from "@/components/Shell";
 import { canAccessRoute } from "@/components/nav-items";
@@ -17,10 +18,14 @@ interface ProfitRow {
   net_profit_cents: number;
 }
 
-function isoDay(offsetDays = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() - offsetDays);
-  return d.toISOString().slice(0, 10);
+/**
+ * The reporting views bucket by the shop's own day now, so a range's
+ * boundaries have to be computed in the same zone. toISOString() converts to
+ * UTC first and shifts the window by a day at the edges for anyone not on UTC
+ * — which would drop or double-count the first and last day of every range.
+ */
+function isoDay(offsetDays = 0, timeZone = "UTC"): string {
+  return shopDayIso(timeZone, offsetDays);
 }
 
 export default async function ExpensesPage() {
@@ -40,7 +45,7 @@ export default async function ExpensesPage() {
   }
 
   const supabase = await createClient();
-  const from = isoDay(29);
+  const from = isoDay(29, ctx.timezone);
 
   const [{ data: expenses }, { data: profit }] = await Promise.all([
     supabase

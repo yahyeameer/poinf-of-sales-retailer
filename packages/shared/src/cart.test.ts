@@ -3,7 +3,7 @@ import { test, describe } from "node:test";
 
 import { addScan, computeTotals, lineTotalCents, setQuantity, toSalePayload } from "./cart.ts";
 import type { CartLine } from "./cart.ts";
-import { formatMoney, parseMoneyToCents, roundHalfAwayFromZero } from "./money.ts";
+import { centsToInput, formatMoney, parseMoneyToCents, roundHalfAwayFromZero } from "./money.ts";
 
 const line = (over: Partial<CartLine> = {}): CartLine => ({
   productId: "11111111-1111-4111-8111-111111111111",
@@ -147,5 +147,36 @@ describe("money", () => {
   test("formats without throwing on an unknown currency", () => {
     assert.ok(formatMoney(1200, "USD", "en-US").includes("12"));
     assert.ok(formatMoney(1200, "XYZ").includes("12"));
+  });
+});
+
+describe("currencies whose minor unit is not 1/100", () => {
+  // The app sells into markets using UGX and RWF, which have no minor unit at
+  // all, and the Gulf currencies have three. Every amount typed into the till
+  // goes through these two functions, so a wrong exponent here is a pricing
+  // error of 100x, not a rounding difference.
+  test("a zero-decimal currency round-trips whole units", () => {
+    assert.equal(parseMoneyToCents("5000", "UGX"), 5000);
+    assert.equal(centsToInput(5000, "UGX"), "5000");
+    // Not an exact string: Intl separates the symbol with a non-breaking
+    // space, and which one depends on the runtime's ICU version. What matters
+    // is that no minor unit is shown.
+    assert.match(formatMoney(5000, "UGX"), /^UGX\s5,000$/u);
+  });
+
+  test("a two-decimal currency still round-trips cents", () => {
+    assert.equal(parseMoneyToCents("50.00", "KES"), 5000);
+    assert.equal(centsToInput(5000, "KES"), "50.00");
+  });
+
+  test("a three-decimal currency round-trips thousandths", () => {
+    assert.equal(parseMoneyToCents("5.000", "KWD"), 5000);
+    assert.equal(centsToInput(5000, "KWD"), "5.000");
+  });
+
+  test("the hardcoded /100 this replaced was wrong for UGX", () => {
+    // What the till used to prefill for a 5000 UGX total, versus what it means.
+    assert.equal((5000 / 100).toFixed(2), "50.00");
+    assert.equal(centsToInput(5000, "UGX"), "5000");
   });
 });

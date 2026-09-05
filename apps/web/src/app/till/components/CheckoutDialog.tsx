@@ -1,6 +1,6 @@
 "use client";
 
-import { formatMoney } from "@ai-pos/shared";
+import { centsToInput, formatMoney, parseMoneyToCents } from "@ai-pos/shared";
 import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,15 +53,15 @@ export function CheckoutDialog({
   onSubmit: () => void;
 }) {
   const tendersTotal = tenders.reduce(
-    (sum, t) => sum + Math.round((parseFloat(t.amount) || 0) * 100),
+    (sum, t) => sum + (parseMoneyToCents(t.amount, currency) ?? 0),
     0,
   );
   const outstanding = totalCents - tendersTotal;
   const cashChange = tenders
     .filter((t) => t.method === "cash")
     .reduce((sum, t) => {
-      const tendered = Math.round((parseFloat(t.tendered) || 0) * 100);
-      const amount = Math.round((parseFloat(t.amount) || 0) * 100);
+      const tendered = parseMoneyToCents(t.tendered, currency) ?? 0;
+      const amount = parseMoneyToCents(t.amount, currency) ?? 0;
       return sum + Math.max(0, tendered - amount);
     }, 0);
 
@@ -161,7 +161,7 @@ export function CheckoutDialog({
                 ...prev,
                 {
                   method: "mobile_money",
-                  amount: (Math.max(0, outstanding) / 100).toFixed(2),
+                  amount: centsToInput(Math.max(0, outstanding), currency),
                   tendered: "",
                 },
               ])

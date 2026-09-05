@@ -26,7 +26,12 @@ export default async function SettingsPage() {
 
   return (
     <Shell shopName={ctx.shopName}>
-      <SettingsClient shop={shop} canEdit={ctx.role === "owner"} tenantId={ctx.tenantId} />
+      <SettingsClient
+        shop={shop}
+        canEdit={ctx.role === "owner"}
+        tenantId={ctx.tenantId}
+        timezone={ctx.timezone}
+      />
     </Shell>
   );
 }

@@ -2,14 +2,7 @@
 
 import { useState, useMemo, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  formatMoney,
-  formatTime,
-  computeTotals,
-  addScan,
-  setQuantity,
-  type CartLine,
-} from "@ai-pos/shared";
+import { type CartLine, addScan, centsToInput, computeTotals, formatMoney, formatTime, parseMoneyToCents, setQuantity } from "@ai-pos/shared";
 import { ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -148,7 +141,7 @@ export function TillClient({
   function beginCheckout() {
     if (lines.length === 0) return;
     clientIdRef.current = crypto.randomUUID();
-    setTenders([{ method: "cash", amount: (totals.totalCents / 100).toFixed(2), tendered: "" }]);
+    setTenders([{ method: "cash", amount: centsToInput(totals.totalCents, currency), tendered: "" }]);
     setNotice(null);
     setCartOpen(false);
     setDialog("checkout");
@@ -158,8 +151,8 @@ export function TillClient({
     const payments: TenderInput[] = tenders
       .map((t) => ({
         method: t.method,
-        amountCents: Math.round((parseFloat(t.amount) || 0) * 100),
-        tenderedCents: t.tendered ? Math.round(parseFloat(t.tendered) * 100) : null,
+        amountCents: parseMoneyToCents(t.amount, currency) ?? 0,
+        tenderedCents: t.tendered ? parseMoneyToCents(t.tendered, currency) : null,
       }))
       .filter((p) => p.amountCents > 0);
 
