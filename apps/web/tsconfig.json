@@ -15,6 +15,20 @@
         "name": "next"
       }
     ],
+    // Where `/// <reference types="..." />` looks. Pinned for the same reason
+    // as paths below, and separately necessary: a type reference directive does
+    // not go through paths at all. Without this, TypeScript searches upward
+    // from whichever file contains the directive — and next/dist/types.d.ts
+    // references both "react" and "react/experimental". When next resolves to
+    // the root copy, that search starts at the root and finds React 18, while
+    // the app's own source finds the 19 nested in apps/web. Confirmed with
+    // --traceResolution: "react" landed on 19 and "react/experimental" on 18,
+    // in the same program.
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ],
+
     // Pin React's types to one copy, whatever npm does with hoisting.
     //
     // This monorepo holds two Reacts: apps/web is on 19, apps/mobile is on 18
