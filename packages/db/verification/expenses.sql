@@ -102,10 +102,18 @@ select pg_temp.check(
     'select public.record_expense(''fees'', 0, current_date, null, null)') = 'PS422'
 );
 
+-- current_date + 1 is deliberately allowed: for a shop east of UTC their own
+-- today is UTC's tomorrow for part of every day, and spent_on means the local
+-- day. Anything beyond that is the mistyped year the guard exists for.
 select pg_temp.check(
-  'a future date is refused',
+  'tomorrow is allowed, for shops ahead of UTC',
   pg_temp.attempt(:OWNER, 'owner', :TENANT,
-    'select public.record_expense(''fees'', 500, current_date + 1, null, null)') = 'PS422');
+    'select public.record_expense(''fees'', 500, current_date + 1, null, null)') = 'ok');
+
+select pg_temp.check(
+  'a genuinely future date is still refused',
+  pg_temp.attempt(:OWNER, 'owner', :TENANT,
+    'select public.record_expense(''fees'', 500, current_date + 2, null, null)') = 'PS422');
 
 select pg_temp.check(
   'the recorder is remembered',

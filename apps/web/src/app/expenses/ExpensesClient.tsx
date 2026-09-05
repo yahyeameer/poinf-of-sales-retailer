@@ -51,8 +51,21 @@ interface Totals {
 
 const ALL_LOCATIONS = "__all__";
 
+/**
+ * Today where the person standing in the shop is, not today in UTC.
+ *
+ * toISOString() converts to UTC first, so for anywhere east of Greenwich it
+ * returns yesterday's date for part of the day, and for anywhere west it
+ * returns tomorrow's in the evening. spent_on is a plain date meaning "the day
+ * this money went out", which is always the local day — so it has to be read
+ * off the local clock. Used for both the default and the input's max, and the
+ * max was the part that actually broke: a shop in UTC+13 could not select
+ * their own today at all.
+ */
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
 export function ExpensesClient({

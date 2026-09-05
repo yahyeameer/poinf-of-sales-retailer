@@ -66,6 +66,22 @@ export function parseMoneyToCents(input: string, currency: string): number | nul
 }
 
 /**
+ * Cents to the plain string a text input should hold.
+ *
+ * The counterpart to parseMoneyToCents, and the half that was missing. Without
+ * it every prefilled amount in the app wrote `(cents / 100).toFixed(2)` by
+ * hand, which is right for dollars and shillings and wrong by a factor of a
+ * hundred for the zero-decimal currencies this product actually sells into —
+ * UGX and RWF among them. No grouping separators and no symbol: this is for
+ * an <input>, not for display, and a thousands separator here would come
+ * straight back through parseMoneyToCents as a decimal point in some locales.
+ */
+export function centsToInput(cents: number, currency: string): string {
+  const exponent = minorUnitExponent(currency);
+  return (cents / 10 ** exponent).toFixed(exponent);
+}
+
+/**
  * Rounds half away from zero, matching Postgres `round()`.
  *
  * JavaScript's Math.round breaks ties toward +Infinity, so it disagrees with

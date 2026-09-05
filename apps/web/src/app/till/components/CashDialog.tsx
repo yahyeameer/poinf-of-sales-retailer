@@ -1,5 +1,6 @@
 "use client";
 
+import { parseMoneyToCents } from "@ai-pos/shared";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ export function CashDialog({
             type="button"
             disabled={pending}
             onClick={() => {
-              onRecord(kind, Math.round((parseFloat(amount) || 0) * 100), reason);
+              onRecord(kind, parseMoneyToCents(amount, currency) ?? 0, reason);
               setAmount("");
               setReason("");
             }}
