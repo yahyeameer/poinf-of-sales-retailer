@@ -50,14 +50,35 @@ const SAMPLE_SALE = {
   locationName: "Demo Mini-Mart",
 };
 
+/**
+ * The zone list, from the browser rather than from a hardcoded array.
+ *
+ * supportedValuesOf returns the same IANA names the database validates
+ * against, so the picker cannot offer something the trigger will reject. It is
+ * missing on older Safari and on some Android WebViews; there the current
+ * value is the only option, which keeps the form honest — it can be left
+ * alone, and an owner who needs to change it can do so on another device
+ * rather than being shown a list that would fail to save.
+ */
+const TIMEZONES: string[] = (() => {
+  try {
+    return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] })
+      .supportedValuesOf?.("timeZone") ?? [];
+  } catch {
+    return [];
+  }
+})();
+
 export function SettingsClient({
   shop,
   canEdit,
   tenantId,
+  timezone,
 }: {
   shop: ShopBranding;
   canEdit: boolean;
   tenantId: string;
+  timezone: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -74,6 +95,7 @@ export function SettingsClient({
     phone: shop.phone ?? "",
     address: shop.address ?? "",
     taxNumber: shop.taxNumber ?? "",
+    timezone,
   });
 
   const [receipt, setReceipt] = useState({
@@ -125,6 +147,7 @@ export function SettingsClient({
         phone: profile.phone || null,
         address: profile.address || null,
         taxNumber: profile.taxNumber || null,
+        timezone: profile.timezone,
       });
       setProfileNotice(r);
       if (r.ok) router.refresh();
@@ -252,6 +275,37 @@ export function SettingsClient({
                     value={profile.address}
                     onChange={(e) => setProfile({ ...profile, address: e.target.value })}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="s-timezone">Time zone</Label>
+                  {/* A native select over the browser's own zone list. Every
+                      runtime that supports this returns the same IANA names the
+                      database validates against, so the two cannot disagree —
+                      and it saves shipping and ageing a list of 400 strings.
+                      Older browsers get a text field, which the database still
+                      checks. */}
+                  <select
+                    id="s-timezone"
+                    disabled={disabled}
+                    value={profile.timezone}
+                    onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
+                    className="flex h-10 w-full rounded-lg border border-border bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                  >
+                    {(TIMEZONES.includes(profile.timezone)
+                      ? TIMEZONES
+                      : [profile.timezone, ...TIMEZONES]
+                    ).map((z) => (
+                      <option key={z} value={z}>
+                        {z}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Decides when your day starts and ends. Every daily figure — takings,
+                    profit, cashier totals — is counted against this, so a sale at 11pm
+                    lands on the right day.
+                  </p>
                 </div>
 
                 <ActionNotice result={profileNotice} />

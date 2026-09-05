@@ -96,3 +96,38 @@ export function formatLongDate(value: DateInput, timeZone?: string): string {
     timeZone,
   });
 }
+
+/**
+ * The ISO date (YYYY-MM-DD) of a moment, in a given timezone.
+ *
+ * The counterpart to the shop's day in the database. Every report filters on a
+ * `day` column that the views now compute in the shop's own zone, so the
+ * boundaries of a range have to be computed the same way — `toISOString()`
+ * converts to UTC first and silently shifts the window by a day at the edges
+ * for anyone not on UTC.
+ *
+ * `en-CA` because its short date format is already YYYY-MM-DD, which avoids
+ * reassembling the parts by hand.
+ */
+export function isoDayIn(value: DateInput, timeZone = "UTC"): string {
+  const date = value instanceof Date ? value : new Date(value);
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  } catch {
+    // An unknown zone should not take a page down; UTC is what the reports
+    // assumed before shop timezones existed.
+    return date.toISOString().slice(0, 10);
+  }
+}
+
+/** `offsetDays` before today, in the shop's zone. */
+export function shopDayIso(timeZone: string, offsetDays = 0): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - offsetDays);
+  return isoDayIn(d, timeZone);
+}

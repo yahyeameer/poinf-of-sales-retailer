@@ -1,3 +1,4 @@
+import { shopDayIso } from "@ai-pos/shared";
 import { AccessGate } from "@/components/AccessGate";
 import { Shell } from "@/components/Shell";
 import { canAccessRoute } from "@/components/nav-items";
@@ -8,10 +9,14 @@ import { RANGES, type RangeKey } from "./ranges";
 
 export const dynamic = "force-dynamic";
 
-function isoDay(offsetDays = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() - offsetDays);
-  return d.toISOString().slice(0, 10);
+/**
+ * The reporting views bucket by the shop's own day now, so a range's
+ * boundaries have to be computed in the same zone. toISOString() converts to
+ * UTC first and shifts the window by a day at the edges for anyone not on UTC
+ * — which would drop or double-count the first and last day of every range.
+ */
+function isoDay(offsetDays = 0, timeZone = "UTC"): string {
+  return shopDayIso(timeZone, offsetDays);
 }
 
 /**
@@ -114,11 +119,11 @@ export default async function AnalyticsPage({
   }
 
   const supabase = await createClient();
-  const from = isoDay(days - 1);
+  const from = isoDay(days - 1, ctx.timezone);
   // The comparison window is the same length immediately before this one, so
   // "+12%" always means "against an equal stretch", not against a longer or
   // shorter one.
-  const prevFrom = isoDay(days * 2 - 1);
+  const prevFrom = isoDay(days * 2 - 1, ctx.timezone);
 
   const [{ data: daily }, { data: prevDaily }, { data: perf }, { data: dead }, { data: cash }] =
     await Promise.all([

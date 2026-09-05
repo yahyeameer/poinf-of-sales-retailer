@@ -35,6 +35,10 @@ export interface TenantContext {
   locationKind: LocationKind | null;
   /** True when staff are tied to a single location and cannot switch. */
   pinnedToLocation: boolean;
+  /** IANA zone. Decides where the shop's day starts, for every report and
+   *  every date range. 'UTC' until an owner sets it, which is what the
+   *  reports assumed before the column existed. */
+  timezone: string;
 }
 
 /** Bounds the whole load — the auth check plus the three queries after it —
@@ -100,7 +104,7 @@ async function loadTenantContext(): Promise<TenantContext | null> {
   if (!profile?.tenant_id) return null;
 
   const [{ data: tenant }, { data: locations }] = await Promise.all([
-    supabase.from("tenants").select("name, currency").eq("id", profile.tenant_id).single(),
+    supabase.from("tenants").select("name, currency, timezone").eq("id", profile.tenant_id).single(),
     supabase
       .from("locations")
       .select("id, name, kind, is_default")
@@ -137,6 +141,7 @@ async function loadTenantContext(): Promise<TenantContext | null> {
     userName: profile.name ?? user.email ?? "",
     shopName: tenant?.name ?? "Your shop",
     currency: tenant?.currency ?? "USD",
+    timezone: tenant?.timezone ?? "UTC",
     locations: visible,
     locationId: active?.id ?? null,
     locationName: active?.name ?? "No location",

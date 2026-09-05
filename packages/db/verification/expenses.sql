@@ -102,18 +102,22 @@ select pg_temp.check(
     'select public.record_expense(''fees'', 0, current_date, null, null)') = 'PS422'
 );
 
--- current_date + 1 is deliberately allowed: for a shop east of UTC their own
--- today is UTC's tomorrow for part of every day, and spent_on means the local
--- day. Anything beyond that is the mistyped year the guard exists for.
+-- Measured against the shop's own today, not the server's.
+--
+-- 20260906000300 gave this a day of slack because nothing recorded where the
+-- shop was, so it had to tolerate any offset. 20260907000100 records the zone,
+-- so current_shop_date() can answer exactly and the guard is back to meaning
+-- what it says. The zone-aware behaviour is covered in verification/timezone.sql;
+-- here the shop is on UTC, so the shop's today and the server's coincide.
 select pg_temp.check(
-  'tomorrow is allowed, for shops ahead of UTC',
+  'the shop''s own today is accepted',
   pg_temp.attempt(:OWNER, 'owner', :TENANT,
-    'select public.record_expense(''fees'', 500, current_date + 1, null, null)') = 'ok');
+    'select public.record_expense(''fees'', 500, public.current_shop_date(), null, null)') = 'ok');
 
 select pg_temp.check(
-  'a genuinely future date is still refused',
+  'a date past the shop''s today is refused',
   pg_temp.attempt(:OWNER, 'owner', :TENANT,
-    'select public.record_expense(''fees'', 500, current_date + 2, null, null)') = 'PS422');
+    'select public.record_expense(''fees'', 500, public.current_shop_date() + 1, null, null)') = 'PS422');
 
 select pg_temp.check(
   'the recorder is remembered',

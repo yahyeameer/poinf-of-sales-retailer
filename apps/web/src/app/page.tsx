@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { formatMoney } from "@ai-pos/shared";
+import { formatMoney, shopDayIso } from "@ai-pos/shared";
 
 import { LocalTime } from "@/components/LocalTime";
 import { Shell } from "@/components/Shell";
@@ -28,10 +28,14 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function isoDay(offsetDays = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() - offsetDays);
-  return d.toISOString().slice(0, 10);
+/**
+ * The reporting views bucket by the shop's own day now, so a range's
+ * boundaries have to be computed in the same zone. toISOString() converts to
+ * UTC first and shifts the window by a day at the edges for anyone not on UTC
+ * — which would drop or double-count the first and last day of every range.
+ */
+function isoDay(offsetDays = 0, timeZone = "UTC"): string {
+  return shopDayIso(timeZone, offsetDays);
 }
 
 function percentChange(current: number, previous: number): string {
@@ -73,6 +77,9 @@ export default async function DashboardPage() {
     } = await supabase.auth.getUser();
     if (user) redirect("/onboarding");
   }
+
+  // 'UTC' for the signed-out preview, which has no shop to ask.
+  const tz = ctx?.timezone ?? "UTC";
 
   let shopName = "Demo Retail Shop";
   let userName = "Owner";
@@ -121,7 +128,7 @@ export default async function DashboardPage() {
           supabase
             .from("v_sales_daily")
             .select("day, transactions, revenue_cents, cash_cents, mobile_money_cents, card_cents")
-            .gte("day", isoDay(13))
+            .gte("day", isoDay(13, tz))
             .order("day", { ascending: false }),
 
           supabase
@@ -133,7 +140,7 @@ export default async function DashboardPage() {
           supabase
             .from("v_product_performance")
             .select("name, units, revenue_cents")
-            .gte("day", isoDay(6)),
+            .gte("day", isoDay(6, tz)),
 
           supabase
             .from("sales")
@@ -165,9 +172,9 @@ export default async function DashboardPage() {
     console.error("[dashboard] falling back to demo data:", error);
   }
 
-  const today = rows.find((r) => r.day === isoDay(0));
-  const thisWeek = rows.filter((r) => r.day >= isoDay(6));
-  const lastWeek = rows.filter((r) => r.day < isoDay(6) && r.day >= isoDay(13));
+  const today = rows.find((r) => r.day === isoDay(0, tz));
+  const thisWeek = rows.filter((r) => r.day >= isoDay(6, tz));
+  const lastWeek = rows.filter((r) => r.day < isoDay(6, tz) && r.day >= isoDay(13, tz));
 
   const sum = (list: typeof rows, key: "revenue_cents" | "transactions") =>
     list.reduce((acc, r) => acc + Number(r[key] ?? 0), 0);
@@ -203,7 +210,7 @@ export default async function DashboardPage() {
   // A contiguous oldest→newest week for the trend chart, zero-filled so a day
   // with no sales is a gap in the line, not a missing column.
   const trend = Array.from({ length: 7 }, (_, k) => {
-    const day = isoDay(6 - k);
+    const day = isoDay(6 - k, tz);
     const row = rows.find((r) => r.day === day);
     return {
       day,
