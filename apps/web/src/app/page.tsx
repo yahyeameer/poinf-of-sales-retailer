@@ -53,6 +53,25 @@ export default async function DashboardPage() {
   if (ctx) {
     const home = dashboardHref(navAccess(ctx));
     if (home !== "/") redirect(home);
+  } else {
+    // Signed in, but no shop yet — the window between an account existing and
+    // it having a business attached.
+    //
+    // /onboarding is the page that closes that window, and until now nothing
+    // in the app led to it: login sends everyone here, getTenantContext()
+    // returns null, and the dashboard renders sample figures under "you're not
+    // signed in to a shop". A new owner had no way to create one short of
+    // typing the URL.
+    //
+    // Checked by asking for the user rather than by trusting the null, because
+    // getTenantContext() also returns null when the database is unreachable.
+    // In that case this lookup fails too, no user comes back, and nobody is
+    // sent to onboarding on the strength of an outage.
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) redirect("/onboarding");
   }
 
   let shopName = "Demo Retail Shop";
