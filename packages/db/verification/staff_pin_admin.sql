@@ -26,10 +26,23 @@ begin;
 \set CASH   '''22222222-2222-2222-2222-222222222222'''
 \set MGR    '''44444444-4444-4444-4444-444444444444'''
 
+-- Both roles are asserted, not assumed.
+--
+-- An earlier version created the manager but took the cashier's role from
+-- whatever the database happened to hold. Run against a copy where that user
+-- was a manager, nine checks failed — correctly, because a manager may not
+-- manage another manager's PIN, which is the rule under test. The suite has to
+-- state the roles it is testing or it reports on the fixture instead of on the
+-- code.
 insert into auth.users (id) values (:MGR) on conflict do nothing;
 insert into public.users (id, tenant_id, name, role, is_active, login_enabled)
 values (:MGR, :TENANT, 'Manager', 'manager', true, true)
-on conflict (id) do update set role = 'manager', is_active = true;
+on conflict (id) do update set role = 'manager', is_active = true, tenant_id = :TENANT;
+
+insert into auth.users (id) values (:CASH) on conflict do nothing;
+insert into public.users (id, tenant_id, name, role, is_active, login_enabled)
+values (:CASH, :TENANT, 'Cashier', 'cashier', true, true)
+on conflict (id) do update set role = 'cashier', is_active = true, tenant_id = :TENANT;
 
 create or replace function pg_temp.check(label text, ok boolean)
 returns void language plpgsql as $$

@@ -23,10 +23,19 @@ begin;
 \set MGR_A    '''44444444-4444-4444-4444-444444444444'''
 \set RICE     '''9d000000-0000-0000-0000-000000000001'''
 
+-- Roles are asserted rather than inherited from whatever the database holds,
+-- so this reports on the policies and not on the fixture. See the note in
+-- staff_pin_admin.sql: a copy where the "cashier" was really a manager turned
+-- nine correct refusals into nine apparent failures.
 insert into auth.users (id) values (:MGR_A) on conflict do nothing;
 insert into public.users (id, tenant_id, name, role, is_active, login_enabled)
 values (:MGR_A, :TENANT_A, 'Manager', 'manager', true, true)
-on conflict (id) do update set role = 'manager', is_active = true;
+on conflict (id) do update set role = 'manager', is_active = true, tenant_id = :TENANT_A;
+
+insert into auth.users (id) values (:CASH_A) on conflict do nothing;
+insert into public.users (id, tenant_id, name, role, is_active, login_enabled)
+values (:CASH_A, :TENANT_A, 'Cashier', 'cashier', true, true)
+on conflict (id) do update set role = 'cashier', is_active = true, tenant_id = :TENANT_A;
 
 create or replace function pg_temp.check(label text, ok boolean)
 returns void language plpgsql as $$
