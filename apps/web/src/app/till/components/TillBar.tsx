@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { formatMoney } from "@ai-pos/shared";
+import { currencyDisplay, formatMoney } from "@ai-pos/shared";
 import { ArrowLeft, Banknote, FileText, LogOut } from "lucide-react";
 
 import { LocalTime } from "@/components/LocalTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-import type { OpenShift } from "./types";
+import type { CounterCurrency, OpenShift } from "./types";
 
 /**
  * Who is selling, where, and since when — plus the three shift-level actions.
@@ -19,6 +19,7 @@ import type { OpenShift } from "./types";
 export function TillBar({
   shift,
   currency,
+  counter,
   cashierName,
   locationName,
   pending,
@@ -28,6 +29,7 @@ export function TillBar({
 }: {
   shift: OpenShift;
   currency: string;
+  counter: CounterCurrency | null;
   cashierName: string;
   locationName: string;
   pending: boolean;
@@ -56,6 +58,17 @@ export function TillBar({
           {cashierName}
         </p>
       </div>
+
+      {counter && (
+        <Badge
+          variant="outline"
+          className="shrink-0 tabular-nums"
+          title={`Today's rate: 1 ${currencyDisplay(currency)} = ${counter.rate.toLocaleString()} ${currencyDisplay(counter.code)}`}
+        >
+          1 {currencyDisplay(currency)} = {counter.rate.toLocaleString()}{" "}
+          {currencyDisplay(counter.code)}
+        </Badge>
+      )}
 
       <div className="flex shrink-0 flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onCashDrawer} disabled={pending}>

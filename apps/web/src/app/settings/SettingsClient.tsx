@@ -2,7 +2,15 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ImageIcon, Receipt as ReceiptIcon, Store, Stethoscope, Wallet } from "lucide-react";
+import { ArrowLeftRight, ImageIcon, Receipt as ReceiptIcon, Store, Stethoscope, Wallet } from "lucide-react";
+
+import {
+  SUPPORTED_CURRENCIES,
+  convertMinor,
+  currencyLabel,
+  formatMoney,
+  minorUnitExponent,
+} from "@ai-pos/shared";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +34,7 @@ import {
   updateShopProfile,
   updateTradingSettings,
   recomputeStockOnHand,
+  setExchangeRate,
   uploadLogo,
 } from "@/app/settings-actions";
 import type { ShopBranding } from "@/lib/shop";
@@ -72,11 +81,14 @@ const TIMEZONES: string[] = (() => {
 export function SettingsClient({
   shop,
   canEdit,
+  canSetRate,
   tenantId,
   timezone,
 }: {
   shop: ShopBranding;
   canEdit: boolean;
+  /** Managers too — the rate is a daily job, not a quarterly one. */
+  canSetRate: boolean;
   tenantId: string;
   timezone: string;
 }) {
@@ -89,6 +101,7 @@ export function SettingsClient({
   const [receiptNotice, setReceiptNotice] = useState<Notice>(null);
   const [tradingNotice, setTradingNotice] = useState<Notice>(null);
   const [ledgerNotice, setLedgerNotice] = useState<Notice>(null);
+  const [fxNotice, setFxNotice] = useState<Notice>(null);
 
   const [profile, setProfile] = useState({
     name: shop.name,
@@ -106,6 +119,11 @@ export function SettingsClient({
     paperMm: shop.receiptPaperMm,
   });
 
+  const [fx, setFx] = useState({
+    secondaryCurrency: shop.secondaryCurrency ?? "",
+    rate: shop.exchangeRate == null ? "" : String(shop.exchangeRate),
+  });
+
   const [trading, setTrading] = useState({
     currency: shop.currency,
     taxRatePct: String(Math.round(shop.taxRate * 10000) / 100),
@@ -113,6 +131,24 @@ export function SettingsClient({
     allowOversell: shop.allowOversell,
     minMarginPct: String(shop.minMarginPct),
   });
+
+  // One whole unit of the shop's currency, in minor units — $1.00 is 100, and
+  // one Somali shilling is 1. Hardcoding 100 here would misprice the preview
+  // for exactly the zero-decimal currencies this feature exists for.
+  const oneUnitOfShopCurrency = 10 ** minorUnitExponent(shop.currency);
+
+  function saveExchangeRate(e: React.FormEvent) {
+    e.preventDefault();
+    setFxNotice(null);
+    startTransition(async () => {
+      const r = await setExchangeRate({
+        secondaryCurrency: fx.secondaryCurrency || null,
+        rate: fx.secondaryCurrency ? Number(fx.rate) : null,
+      });
+      setFxNotice(r);
+      if (r.ok) router.refresh();
+    });
+  }
 
   function repairLedger() {
     setLedgerNotice(null);
@@ -499,16 +535,28 @@ export function SettingsClient({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="s-currency">Currency</Label>
-                    <Input
-                      id="s-currency"
-                      maxLength={3}
-                      disabled={disabled}
+                    {/* A list rather than a text box. The old box took any three
+                        letters, which let a shop type SLSH — four letters, which
+                        Intl refuses and char(3) would truncate. */}
+                    <Select
                       value={trading.currency}
-                      onChange={(e) =>
-                        setTrading({ ...trading, currency: e.target.value.toUpperCase() })
-                      }
-                      className="font-mono uppercase"
-                    />
+                      onValueChange={(v) => setTrading({ ...trading, currency: v })}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger id="s-currency">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SUPPORTED_CURRENCIES.map((c) => (
+                          <SelectItem key={c.code} value={c.code}>
+                            {c.display} — {c.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      What you price in and what every report is counted in.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="s-tax">Tax rate (%)</Label>
@@ -589,6 +637,124 @@ export function SettingsClient({
                 <Button type="submit" disabled={disabled}>
                   {pending ? "Saving…" : "Save trading settings"}
                 </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* ---------- Counter currency ---------- */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ArrowLeftRight className="size-4 text-primary" />
+                Money taken at the counter
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                For a shop that prices in one currency and is handed another — dollars on the
+                shelf, shillings in the drawer. The till shows cashiers what to collect and
+                what to give back. Your prices, totals and reports stay in{" "}
+                {currencyLabel(shop.currency)}.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={saveExchangeRate} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="s-secondary">Customers pay in</Label>
+                    <Select
+                      value={fx.secondaryCurrency || "none"}
+                      onValueChange={(v) =>
+                        setFx({ ...fx, secondaryCurrency: v === "none" ? "" : v })
+                      }
+                      disabled={!canSetRate || pending}
+                    >
+                      <SelectTrigger id="s-secondary">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          Only {currencyLabel(shop.currency)}
+                        </SelectItem>
+                        {SUPPORTED_CURRENCIES.filter((c) => c.code !== shop.currency).map((c) => (
+                          <SelectItem key={c.code} value={c.code}>
+                            {c.display} — {c.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {fx.secondaryCurrency && (
+                    <div className="space-y-2">
+                      <Label htmlFor="s-rate">Today&apos;s rate</Label>
+                      <Input
+                        id="s-rate"
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        min="0"
+                        placeholder="8500"
+                        className="tabular-nums"
+                        disabled={!canSetRate || pending}
+                        value={fx.rate}
+                        onChange={(e) => setFx({ ...fx, rate: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        How many{" "}
+                        {SUPPORTED_CURRENCIES.find((c) => c.code === fx.secondaryCurrency)
+                          ?.display ?? fx.secondaryCurrency}{" "}
+                        to one {SUPPORTED_CURRENCIES.find((c) => c.code === shop.currency)
+                          ?.display ?? shop.currency}
+                        , as you would read it off a board.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* The rate as a sentence, because a bare number in a box is easy
+                    to enter upside down — 8,500 shillings to the dollar and
+                    0.000118 dollars to the shilling are both "the rate", and
+                    only one of them is what the owner meant. Uses the same
+                    convertMinor the till does, so the preview cannot promise a
+                    figure the checkout will not produce. */}
+                {fx.secondaryCurrency && Number(fx.rate) > 0 && (
+                  <div className="rounded-lg bg-primary-soft px-4 py-3 text-sm">
+                    <span className="text-muted-foreground">A </span>
+                    <strong className="tabular-nums">
+                      {formatMoney(oneUnitOfShopCurrency, shop.currency)}
+                    </strong>
+                    <span className="text-muted-foreground"> item is </span>
+                    <strong className="tabular-nums text-primary">
+                      {formatMoney(
+                        convertMinor(
+                          oneUnitOfShopCurrency,
+                          shop.currency,
+                          fx.secondaryCurrency,
+                          Number(fx.rate),
+                        ),
+                        fx.secondaryCurrency,
+                      )}
+                    </strong>
+                    <span className="text-muted-foreground"> at this rate.</span>
+                  </div>
+                )}
+
+                {shop.exchangeRateUpdatedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Last set {new Date(shop.exchangeRateUpdatedAt).toLocaleString()}.
+                  </p>
+                )}
+
+                <ActionNotice result={fxNotice} />
+
+                {canSetRate ? (
+                  <Button type="submit" disabled={pending}>
+                    {pending ? "Saving…" : "Save rate"}
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    An owner or manager sets the rate.
+                  </p>
+                )}
               </form>
             </CardContent>
           </Card>

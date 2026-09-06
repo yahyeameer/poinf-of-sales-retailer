@@ -29,6 +29,10 @@ export default async function SettingsPage() {
       <SettingsClient
         shop={shop}
         canEdit={ctx.role === "owner"}
+        // A manager too: the rate is set before opening most days, and an
+        // owner-only rate would stop the shop trading until they woke up.
+        // set_exchange_rate() re-checks this in the database regardless.
+        canSetRate={ctx.role === "owner" || ctx.role === "manager"}
         tenantId={ctx.tenantId}
         timezone={ctx.timezone}
       />

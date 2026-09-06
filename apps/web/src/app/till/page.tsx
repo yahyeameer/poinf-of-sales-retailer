@@ -93,6 +93,14 @@ export default async function TillPage() {
         openShift={(shift ?? null) as OpenShift | null}
         parked={(parked ?? []) as ParkedSale[]}
         currency={ctx.currency}
+        // Both or neither — the column pair is constrained that way, so a
+        // half-set shop shows the till no counter currency at all rather than
+        // a rate it cannot convert with.
+        counter={
+          ctx.secondaryCurrency && ctx.exchangeRate
+            ? { code: ctx.secondaryCurrency, rate: ctx.exchangeRate }
+            : null
+        }
         taxRate={Number(tenant?.tax_rate ?? 0)}
         taxInclusive={tenant?.tax_inclusive ?? true}
         // The person who unlocked, not the account. This is the name on the
