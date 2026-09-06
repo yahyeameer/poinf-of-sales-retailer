@@ -104,6 +104,12 @@ with checks as (
 
   -- ---------------------------------------------------------------------
   -- 4. The PIN hash must not be readable by anyone.
+  --
+  -- Reports the GRANTOR as well as the grantee, because that is what made
+  -- this hard to see. A privilege is recorded per grantor: if supabase_admin
+  -- granted it and postgres runs the revoke, the grant survives and the
+  -- column stays readable. Knowing who granted it says whether a revoke will
+  -- actually bite.
   -- ---------------------------------------------------------------------
   select
     8,
@@ -111,7 +117,9 @@ with checks as (
     case when count(*) = 0 then 'PASS' else 'FAIL' end,
     case when count(*) = 0
       then 'no client grant covers users.pin_hash'
-      else 'exposed to: ' || string_agg(distinct grantee, ', ')
+      else 'exposed - ' || string_agg(
+             grantee || ' (' || privilege_type || ', granted by ' || grantor || ')',
+             '; ' order by grantee, privilege_type)
     end
   from information_schema.column_privileges
   where table_schema = 'public'
@@ -122,10 +130,31 @@ with checks as (
   union all
 
   -- ---------------------------------------------------------------------
-  -- 5. Every table needs RLS on, with at least one policy.
+  -- 4b. `anon` should hold nothing at all on public.users.
+  --
+  -- Nothing in the app reads this table before sign-in, so any privilege here
+  -- for the pre-auth role is surplus. RLS still refuses the rows, but for a
+  -- table holding bcrypt digests over a four-digit keyspace the second lock
+  -- is worth having.
   -- ---------------------------------------------------------------------
   select
     9,
+    'Pre-auth role holds nothing on users',
+    case when count(*) = 0 then 'PASS' else 'FAIL' end,
+    case when count(*) = 0
+      then 'anon has no privilege on public.users'
+      else 'anon holds: ' || string_agg(distinct privilege_type, ', ')
+    end
+  from information_schema.role_table_grants
+  where table_schema = 'public' and table_name = 'users' and grantee = 'anon'
+
+  union all
+
+  -- ---------------------------------------------------------------------
+  -- 5. Every table needs RLS on, with at least one policy.
+  -- ---------------------------------------------------------------------
+  select
+    10,
     'Every table has RLS and a policy',
     case when count(*) = 0 then 'PASS' else 'FAIL' end,
     case when count(*) = 0
@@ -151,7 +180,7 @@ with checks as (
   -- day until this is set.
   -- ---------------------------------------------------------------------
   select
-    10,
+    11,
     'Shop timezones set',
     case
       when not exists (select 1 from information_schema.columns
