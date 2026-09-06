@@ -142,6 +142,92 @@ test("json mode is requested only when asked for", async () => {
   assert.equal((body.generationConfig as Record<string, unknown>).responseMimeType, undefined);
 });
 
+// --- truncation and thinking ----------------------------------------------
+//
+// 2.5-series models reason before replying and those thought tokens come out
+// of maxOutputTokens. Both of these were found by running real questions
+// through the live API, not by reading the docs.
+
+test("a truncated JSON reply is a failure", () => {
+  process.env.GEMINI_API_KEY = "test-key";
+  stubFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            { content: { parts: [{ text: '{"lookups":["low_' }] }, finishReason: "MAX_TOKENS" },
+          ],
+        }),
+        { status: 200 },
+      ),
+  );
+  return askGemini({ system: "s", user: "u", json: true }).then((r) => {
+    assert.equal(r.ok, false);
+    assert.match(r.reason ?? "", /truncated/);
+  });
+});
+
+test("a truncated PROSE reply is also a failure", async () => {
+  // The worse case, and the one the first version of this guard missed: half
+  // a sentence parses fine and would reach a shop owner looking complete.
+  process.env.GEMINI_API_KEY = "test-key";
+  stubFetch(
+    () =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: { parts: [{ text: "Your best sellers are Rice 5kg and Cooking Oil" }] },
+              finishReason: "MAX_TOKENS",
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+  );
+  const r = await askGemini({ system: "s", user: "u" });
+  assert.equal(r.ok, false, "a half-finished sentence must not be returned as an answer");
+  assert.match(r.reason ?? "", /truncated/);
+});
+
+test("thinking:false asks the model not to think", async () => {
+  process.env.GEMINI_API_KEY = "test-key";
+  let body: Record<string, unknown> = {};
+  stubFetch((_u, init) => {
+    body = JSON.parse(String(init.body));
+    return reply("ok");
+  });
+
+  await askGemini({ system: "s", user: "u", thinking: false });
+  assert.deepEqual((body.generationConfig as Record<string, unknown>).thinkingConfig, {
+    thinkingBudget: 0,
+  });
+
+  await askGemini({ system: "s", user: "u" });
+  assert.equal((body.generationConfig as Record<string, unknown>).thinkingConfig, undefined);
+});
+
+test("a model that rejects thinkingConfig is retried without it", async () => {
+  // Rather than take the whole model path down over a tuning flag.
+  process.env.GEMINI_API_KEY = "test-key";
+  let calls = 0;
+  let secondBody: Record<string, unknown> = {};
+  stubFetch((_u, init) => {
+    calls += 1;
+    if (calls === 1) {
+      return new Response('{"error":{"message":"thinkingConfig is not supported"}}', { status: 400 });
+    }
+    secondBody = JSON.parse(String(init.body));
+    return reply("recovered");
+  });
+
+  const r = await askGemini({ system: "s", user: "u", thinking: false });
+  assert.equal(calls, 2);
+  assert.equal(r.ok, true);
+  assert.equal(r.text, "recovered");
+  assert.equal((secondBody.generationConfig as Record<string, unknown>).thinkingConfig, undefined);
+});
+
 // --- parseJsonReply --------------------------------------------------------
 //
 // Models wrap JSON in fences and prose even when asked not to, and a router

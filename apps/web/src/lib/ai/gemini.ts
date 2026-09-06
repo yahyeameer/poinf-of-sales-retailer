@@ -39,6 +39,17 @@ export async function askGemini(opts: {
   user: string;
   json?: boolean;
   maxOutputTokens?: number;
+  /**
+   * Let the model think before answering. Off for routing.
+   *
+   * 2.5-series models reason before replying and those thought tokens are
+   * charged against maxOutputTokens. A routing call given a small budget spent
+   * all of it thinking and was cut off mid-sentence, so the JSON never
+   * arrived and the whole model path silently fell back to keywords —
+   * observed, not theorised: thoughtsTokenCount 42 against a 128 ceiling.
+   * Picking one id from a list of seven does not need deliberation.
+   */
+  thinking?: boolean;
 }): Promise<GeminiResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return { ok: false, text: "", reason: "GEMINI_API_KEY is not set" };
@@ -50,22 +61,39 @@ export async function askGemini(opts: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  try {
-    const res = await fetch(`${ENDPOINT}/${model}:generateContent`, {
+  const buildBody = (withThinkingConfig: boolean) =>
+    JSON.stringify({
+      systemInstruction: { parts: [{ text: opts.system }] },
+      contents: [{ role: "user", parts: [{ text: opts.user }] }],
+      generationConfig: {
+        // Low but not zero: this is retrieval-and-phrasing, not writing.
+        temperature: 0.2,
+        maxOutputTokens: opts.maxOutputTokens ?? 512,
+        ...(opts.json ? { responseMimeType: "application/json" } : {}),
+        ...(withThinkingConfig && opts.thinking === false
+          ? { thinkingConfig: { thinkingBudget: 0 } }
+          : {}),
+      },
+    });
+
+  const send = (withThinkingConfig: boolean) =>
+    fetch(`${ENDPOINT}/${model}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       signal: controller.signal,
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: opts.system }] },
-        contents: [{ role: "user", parts: [{ text: opts.user }] }],
-        generationConfig: {
-          // Low but not zero: this is retrieval-and-phrasing, not writing.
-          temperature: 0.2,
-          maxOutputTokens: opts.maxOutputTokens ?? 512,
-          ...(opts.json ? { responseMimeType: "application/json" } : {}),
-        },
-      }),
+      body: buildBody(withThinkingConfig),
     });
+
+  try {
+    let res = await send(true);
+
+    // thinkingConfig is a 2.5-series field. A model that predates it rejects
+    // the request outright, which would take the whole model path down over a
+    // tuning flag — so drop it and ask again rather than fail.
+    if (res.status === 400 && opts.thinking === false) {
+      const peek = await res.clone().text().catch(() => "");
+      if (/thinking/i.test(peek)) res = await send(false);
+    }
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
@@ -83,11 +111,29 @@ export async function askGemini(opts: {
     };
 
     const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    const finish = data.candidates?.[0]?.finishReason;
     if (!text.trim()) {
       return {
         ok: false,
         text: "",
-        reason: `empty response (finishReason: ${data.candidates?.[0]?.finishReason ?? "none"})`,
+        reason:
+          finish === "MAX_TOKENS"
+            ? "ran out of output tokens before answering (raise maxOutputTokens, or pass thinking:false)"
+            : `empty response (finishReason: ${finish ?? "none"})`,
+      };
+    }
+
+    // Truncated mid-answer. This guard originally covered JSON only, on the
+    // reasoning that a cut-off object will not parse anyway — but prose has
+    // the worse failure: it *does* parse, so a sentence ending "and Cooking
+    // Oil" would have gone straight to a shop owner as though it were the
+    // whole answer. Falling back to the keyword path is better than half a
+    // reply, in both modes.
+    if (finish === "MAX_TOKENS") {
+      return {
+        ok: false,
+        text: "",
+        reason: `reply was truncated (MAX_TOKENS${opts.thinking === false ? "" : ", thinking was on"})`,
       };
     }
 

@@ -209,7 +209,8 @@ async function answerWithGemini(
     system: ROUTER_SYSTEM + LOOKUP_MENU,
     user: query,
     json: true,
-    maxOutputTokens: 128,
+    thinking: false,
+    maxOutputTokens: 256,
   });
 
   if (!routed.ok) {
@@ -256,7 +257,11 @@ async function answerWithGemini(
       `Shop currency: ${currency}\n\n` +
       `Question: ${query}\n\n` +
       `Facts:\n${JSON.stringify(facts, null, 2)}`,
-    maxOutputTokens: 400,
+    // Two or three sentences quoting figures that are already formatted does
+    // not need deliberation, and on 2.5-series models thought tokens come out
+    // of this same budget — which is what truncated the answer in testing.
+    thinking: false,
+    maxOutputTokens: 600,
   });
 
   if (!drafted.ok) {
