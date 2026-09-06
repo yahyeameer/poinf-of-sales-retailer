@@ -1,7 +1,29 @@
 import { NextResponse } from "next/server";
 import { formatMoney } from "@ai-pos/shared";
+
+import { askGemini, geminiConfigured, parseJsonReply } from "@/lib/ai/gemini";
+import { LOOKUPS, LOOKUP_MENU } from "@/lib/ai/lookups";
 import { createClient } from "@/lib/supabase/server";
 
+/**
+ * The assistant, in two halves.
+ *
+ * The figures come from the shop's own views, run with the caller's session so
+ * RLS decides what is readable. The model picks which lookups answer the
+ * question and phrases the result. It is never handed the database and never
+ * asked to do arithmetic — every money value reaches it already formatted, to
+ * be quoted rather than recomputed.
+ *
+ * That split is the point. This route used to be three `includes()` branches
+ * and, before that, invented prose: a shop owner asking "am I losing money on
+ * rice?" was told "store health is good", which is measured by nothing. Adding
+ * a model must not bring that back, so the prompt below forbids figures that
+ * are not in the payload and the UI still marks anything ungrounded.
+ *
+ * Without GEMINI_API_KEY the route behaves exactly as it did before — the
+ * keyword matcher underneath is untouched and is also the fallback whenever a
+ * model call fails, times out, or the model name has been retired.
+ */
 export async function POST(req: Request) {
   try {
     const { query } = await req.json();
@@ -24,6 +46,19 @@ export async function POST(req: Request) {
     const { data: tenant } = await supabase.from("tenants").select("currency").single();
     const currency = tenant?.currency ?? "USD";
     const money = (cents: number) => formatMoney(Math.round(cents), currency);
+
+    // --- the model path -------------------------------------------------
+    //
+    // Tried first, falls through to the keyword matcher below on any failure.
+    // Two calls: one to choose lookups (cheap, JSON), one to phrase the answer
+    // from what they returned. Grounding needs the data before the prose, so
+    // the round trip cannot be collapsed into one.
+    if (geminiConfigured()) {
+      const answered = await answerWithGemini(query, supabase, money, currency);
+      if (answered) return NextResponse.json(answered);
+      // Nothing to tell the user: the keyword path below still answers the
+      // three questions it always did.
+    }
 
     const lower = query.toLowerCase();
 
@@ -128,4 +163,106 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// The model path
+// ---------------------------------------------------------------------------
+
+const ROUTER_SYSTEM = `You route a shop owner's question to data lookups for a
+point-of-sale system. Reply with JSON only: {"lookups": ["id", ...]}.
+
+Choose at most 3 ids from this list, most relevant first. Choose none (an empty
+array) if the question is not about this shop's sales, stock, products, money
+or staff — small talk, general knowledge, and anything the list cannot answer
+should return an empty array rather than a loose guess.
+
+Available lookups:
+`;
+
+const ANSWER_SYSTEM = `You are the assistant inside a small shop's
+point-of-sale app. Answer the owner's question using ONLY the JSON facts you
+are given.
+
+Rules, in order of importance:
+1. Never state a number that is not in the facts. Do not add, average,
+   project, or estimate. Every money value is already formatted — quote it
+   exactly as written, including its currency symbol.
+2. If the facts do not answer the question, say so plainly in one sentence and
+   name what you could look at instead. A clear "I don't have that" is more
+   useful than a confident guess, and far safer.
+3. If a lookup reports available: false, that means the signed-in user is not
+   allowed to see those figures — say the answer needs an owner or manager,
+   not that the data is missing.
+4. Be brief and concrete: two or three sentences, no preamble, no bullet
+   lists unless you are naming several products. Talk like a shopkeeper, not
+   an analyst. No markdown headings.`;
+
+async function answerWithGemini(
+  query: string,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  money: (cents: number) => string,
+  currency: string,
+): Promise<{ answer: string; matched: boolean } | null> {
+  const routed = await askGemini({
+    system: ROUTER_SYSTEM + LOOKUP_MENU,
+    user: query,
+    json: true,
+    maxOutputTokens: 128,
+  });
+
+  if (!routed.ok) {
+    console.error("[ai-query] routing failed:", routed.reason);
+    return null;
+  }
+
+  const picked = parseJsonReply<{ lookups?: unknown }>(routed.text);
+  const ids = Array.isArray(picked?.lookups)
+    ? (picked!.lookups as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 3)
+    : [];
+
+  const chosen = LOOKUPS.filter((l) => ids.includes(l.id));
+
+  // The model judged the question out of range. Answer in the app's own words
+  // rather than spending a second call on it — and mark it ungrounded so the
+  // UI presents it as a limitation.
+  if (chosen.length === 0) {
+    return {
+      matched: false,
+      answer:
+        "I can't answer that one. I read figures straight from your shop's data, " +
+        "so I can cover sales and takings, best sellers, stock that's running low " +
+        "or not moving, your payment mix, and profit.",
+    };
+  }
+
+  // Run them with the caller's own session: RLS is what decides which of these
+  // rows exist for this user, not the prompt.
+  const facts: Record<string, unknown> = {};
+  for (const lookup of chosen) {
+    try {
+      facts[lookup.id] = await lookup.run(supabase, money);
+    } catch (err) {
+      console.error(`[ai-query] lookup ${lookup.id} failed:`, err);
+    }
+  }
+
+  if (Object.keys(facts).length === 0) return null;
+
+  const drafted = await askGemini({
+    system: ANSWER_SYSTEM,
+    user:
+      `Shop currency: ${currency}\n\n` +
+      `Question: ${query}\n\n` +
+      `Facts:\n${JSON.stringify(facts, null, 2)}`,
+    maxOutputTokens: 400,
+  });
+
+  if (!drafted.ok) {
+    console.error("[ai-query] answer failed:", drafted.reason);
+    return null;
+  }
+
+  return { answer: drafted.text.trim(), matched: true };
 }
