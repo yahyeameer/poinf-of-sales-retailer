@@ -54,7 +54,7 @@ commands and do nothing in the editor — hence the second file.)
 Expect the first check to name `v_expenses_daily`, `v_profit_daily` and
 `v_staff_pin_status` as leaking, and the migration rows to read `FAIL`.
 
-## Apply
+## Apply — the normal way
 
 ```bash
 npm run db:push          # supabase db push --workdir packages/db
@@ -69,6 +69,31 @@ If the CLI is not linked yet:
 ```bash
 supabase link --project-ref ogzqtmfgadksuszajgla --workdir packages/db
 ```
+
+## Apply — without the CLI
+
+If there is no CLI to hand, paste `packages/db/ALL_PENDING_MIGRATIONS.sql` into
+the Supabase SQL editor and run it. It is generated from the same migration
+files by `node packages/db/scripts/bundle-migrations.mjs`.
+
+It is **one transaction**, so it cannot half-apply: if any statement fails — the
+usual cause being that some of these already ran — the whole thing rolls back
+and the database is untouched. Regenerate the bundle from a later migration
+rather than editing around the error:
+
+```bash
+node packages/db/scripts/bundle-migrations.mjs --from 20260906000100
+```
+
+It ends by writing the rows `supabase db push` uses to decide what has already
+run. Skipping those is what makes a hand-pasted migration a trap: the SQL
+applies, the CLI still thinks the work is pending, and the next push fails on
+columns that now exist.
+
+Verified against a copy of the database at the pre-migration state: the bundle
+applies clean, all 99 behavioural checks pass afterwards, and running it a
+second time aborts on the first conflicting statement and leaves the database
+exactly as it was.
 
 ## After
 
