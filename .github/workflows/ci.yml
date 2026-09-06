@@ -30,9 +30,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 22, not 20. Both test scripts run TypeScript directly through
+      # `node --experimental-strip-types`, which landed in 22.6 — on 20 it is
+      # an unknown flag, so node exits before running a single test. That is
+      # what the "Unit tests" step had been doing on every push to main:
+      # failing in under a second, for a reason that had nothing to do with
+      # the code being tested.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # `npm ci` rather than `npm install`: it fails when the lockfile and the
