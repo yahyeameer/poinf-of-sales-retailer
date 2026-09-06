@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { type CartLine, addScan, centsToInput, computeTotals, formatMoney, formatTime, parseMoneyToCents, setQuantity } from "@ai-pos/shared";
+import { type CartLine, addScan, centsToInput, computeTotals, formatMoney, formatTime, parseMoneyToCents, setQuantity,
+  convertMinor,
+} from "@ai-pos/shared";
 import { ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ import {
 
 import { CartPanel } from "./components/CartPanel";
 import { CashDialog } from "./components/CashDialog";
+import type { CounterCurrency } from "./components/types";
 import { CheckoutDialog } from "./components/CheckoutDialog";
 import { CloseShiftDialog } from "./components/CloseShiftDialog";
 import { HeldSalesDialog } from "./components/HeldSalesDialog";
@@ -57,6 +60,7 @@ export function TillClient({
   openShift: shift,
   parked,
   currency,
+  counter,
   taxRate,
   taxInclusive,
   cashierName,
@@ -66,6 +70,7 @@ export function TillClient({
   openShift: OpenShift | null;
   parked: ParkedSale[];
   currency: string;
+  counter: CounterCurrency | null;
   taxRate: number;
   taxInclusive: boolean;
   cashierName: string;
@@ -149,11 +154,39 @@ export function TillClient({
 
   function submitSale() {
     const payments: TenderInput[] = tenders
-      .map((t) => ({
-        method: t.method,
-        amountCents: parseMoneyToCents(t.amount, currency) ?? 0,
-        tenderedCents: t.tendered ? parseMoneyToCents(t.tendered, currency) : null,
-      }))
+      .map((t) => {
+        // amountCents is the shop's currency in every case. A leg settled in
+        // the counter currency records what crossed the counter alongside it,
+        // so the drawer can be counted in the money it actually holds and the
+        // rate used is pinned to the sale rather than read back off tenants
+        // weeks later, by which time it has moved.
+        const amountCents = parseMoneyToCents(t.amount, currency) ?? 0;
+        const settling = t.inSecondary && counter ? counter : null;
+        const legCode = settling ? settling.code : currency;
+
+        return {
+          method: t.method,
+          amountCents,
+          // Cash given is read in whatever the customer handed over, so it is
+          // converted back to the shop's currency for the stored figure that
+          // the receipt and the drawer maths already expect.
+          tenderedCents: t.tendered
+            ? settling
+              ? convertMinor(
+                  parseMoneyToCents(t.tendered, legCode) ?? 0,
+                  settling.code,
+                  currency,
+                  1 / settling.rate,
+                )
+              : parseMoneyToCents(t.tendered, currency)
+            : null,
+          paidCurrency: settling ? settling.code : null,
+          paidAmountMinor: settling
+            ? convertMinor(amountCents, currency, settling.code, settling.rate)
+            : null,
+          fxRate: settling ? settling.rate : null,
+        };
+      })
       .filter((p) => p.amountCents > 0);
 
     startTransition(async () => {
@@ -248,6 +281,7 @@ export function TillClient({
       <TillBar
         shift={shift}
         currency={currency}
+        counter={counter}
         cashierName={cashierName}
         locationName={locationName}
         pending={pending}
@@ -343,6 +377,7 @@ export function TillClient({
         open={dialog === "checkout"}
         onOpenChange={(open) => setDialog(open ? "checkout" : null)}
         currency={currency}
+        counter={counter}
         totalCents={totals.totalCents}
         tenders={tenders}
         setTenders={setTenders}

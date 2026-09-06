@@ -49,9 +49,19 @@ export interface CartItem {
 
 export interface TenderInput {
   method: "cash" | "mobile_money" | "card";
+  /** Always the shop's own currency. See Tender.inSecondary. */
   amountCents: number;
   tenderedCents?: number | null;
   reference?: string | null;
+  /**
+   * What physically crossed the counter, when it was not the shop's currency.
+   * All three travel together or not at all — sale_payments has a constraint
+   * saying so, because a currency with no amount cannot be reconciled and an
+   * amount with no rate cannot be checked against the day's board.
+   */
+  paidCurrency?: string | null;
+  paidAmountMinor?: number | null;
+  fxRate?: number | null;
 }
 
 // --- shift ----------------------------------------------------------------
@@ -301,6 +311,9 @@ export async function completeSale(input: {
       amount_cents: p.amountCents,
       tendered_cents: p.tenderedCents ?? null,
       reference: p.reference ?? null,
+      paid_currency: p.paidCurrency ?? null,
+      paid_amount_minor: p.paidAmountMinor ?? null,
+      fx_rate: p.fxRate ?? null,
     })),
   });
 

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { isSupportedCurrency, SUPPORTED_CURRENCIES } from "@ai-pos/shared";
+
 import { createClient } from "@/lib/supabase/server";
 import { getTenantContext } from "@/lib/tenant";
 
@@ -234,8 +236,15 @@ export async function updateTradingSettings(input: {
   const { ctx, error: authError } = await requireOwner();
   if (!ctx) return { ok: false, message: authError! };
 
-  if (!/^[A-Za-z]{3}$/.test(input.currency)) {
-    return { ok: false, message: "Currency should be a three-letter code like USD or KES." };
+  // Was "any three letters", which accepted SLSH-adjacent typos and anything
+  // else. The set of currencies this product supports is small and known, and
+  // one of them (SLS) only works because it is stored in its ISO-shaped form —
+  // so the list is the validation.
+  if (!isSupportedCurrency(input.currency)) {
+    return {
+      ok: false,
+      message: `Pick one of: ${SUPPORTED_CURRENCIES.map((c) => c.display).join(", ")}.`,
+    };
   }
   if (!(input.taxRatePct >= 0 && input.taxRatePct < 100)) {
     return { ok: false, message: "Tax rate must be between 0 and 100." };
@@ -264,5 +273,65 @@ export async function updateTradingSettings(input: {
   return {
     ok: true,
     message: "Trading settings saved. New sales use these; past sales keep what they were rung up with.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The counter currency and today's rate
+// ---------------------------------------------------------------------------
+
+/**
+ * Sets the money the counter takes and what it is worth today.
+ *
+ * Not `requireOwner`. The rate moves daily and is usually set before opening,
+ * so an owner-only rate means the shop cannot trade until the owner is awake.
+ * The database is the thing enforcing this: set_exchange_rate() is SECURITY
+ * DEFINER and checks for owner or manager itself, which is also why a manager
+ * gaining the rate does not gain `tenants` — UPDATE on that table stays
+ * owner-only, so tax_rate and allow_oversell are still out of reach.
+ *
+ * Pass a null currency to go back to taking only the shop's own money.
+ */
+export async function setExchangeRate(input: {
+  secondaryCurrency: string | null;
+  rate: number | null;
+}): Promise<ActionResult> {
+  const ctx = await getTenantContext();
+  if (!ctx) return { ok: false, message: "You need to sign in first." };
+
+  const clearing = !input.secondaryCurrency;
+
+  if (!clearing) {
+    if (!isSupportedCurrency(input.secondaryCurrency!)) {
+      return {
+        ok: false,
+        message: `Pick one of: ${SUPPORTED_CURRENCIES.map((c) => c.display).join(", ")}.`,
+      };
+    }
+    if (input.secondaryCurrency!.toUpperCase() === ctx.currency.toUpperCase()) {
+      return {
+        ok: false,
+        message: "That is already the shop's currency. Pick the money customers hand over instead.",
+      };
+    }
+    if (!(typeof input.rate === "number" && Number.isFinite(input.rate) && input.rate > 0)) {
+      return { ok: false, message: "Enter a rate greater than zero." };
+    }
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_exchange_rate", {
+    p_secondary_currency: clearing ? null : input.secondaryCurrency!.toUpperCase(),
+    p_rate: clearing ? null : input.rate,
+  });
+
+  if (error) return { ok: false, message: readableError(error) };
+
+  revalidateEverywhere();
+  return {
+    ok: true,
+    message: clearing
+      ? "The counter now takes only the shop's own currency."
+      : "Rate saved. The till shows it to cashiers straight away; sales already rung up keep the rate they were taken at.",
   };
 }

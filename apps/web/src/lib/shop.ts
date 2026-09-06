@@ -16,6 +16,9 @@ export interface ShopBranding {
   taxInclusive: boolean;
   allowOversell: boolean;
   minMarginPct: number;
+  secondaryCurrency: string | null;
+  exchangeRate: number | null;
+  exchangeRateUpdatedAt: string | null;
 }
 
 /** Columns the settings page and the receipt both read. Kept in one place so
@@ -23,7 +26,8 @@ export interface ShopBranding {
 export const SHOP_COLUMNS =
   "name, currency, logo_path, phone, address, tax_number, " +
   "receipt_header, receipt_footer, receipt_show_logo, receipt_show_tax_line, " +
-  "receipt_paper_mm, tax_rate, tax_inclusive, allow_oversell, min_margin_pct";
+  "receipt_paper_mm, tax_rate, tax_inclusive, allow_oversell, min_margin_pct, " +
+  "secondary_currency, exchange_rate, exchange_rate_updated_at";
 
 interface ShopRow {
   name: string;
@@ -41,6 +45,9 @@ interface ShopRow {
   tax_inclusive: boolean;
   allow_oversell: boolean;
   min_margin_pct: string | number;
+  secondary_currency: string | null;
+  exchange_rate: string | number | null;
+  exchange_rate_updated_at: string | null;
 }
 
 /**
@@ -84,5 +91,8 @@ export async function getShopBranding(tenantId: string): Promise<ShopBranding | 
     taxInclusive: row.tax_inclusive,
     allowOversell: row.allow_oversell,
     minMarginPct: Number(row.min_margin_pct),
+    secondaryCurrency: row.secondary_currency,
+    exchangeRate: row.exchange_rate == null ? null : Number(row.exchange_rate),
+    exchangeRateUpdatedAt: row.exchange_rate_updated_at,
   };
 }

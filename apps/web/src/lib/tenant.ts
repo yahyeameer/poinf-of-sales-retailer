@@ -22,6 +22,15 @@ export interface TenantContext {
   shopName: string;
   currency: string;
 
+  /**
+   * The money the counter actually takes, when it differs from the money the
+   * shop prices in. Null for a single-currency shop, which is most of them.
+   * `exchangeRate` is major units of secondaryCurrency per 1 major unit of
+   * `currency` — the number off a bureau board, not a minor-unit ratio.
+   */
+  secondaryCurrency: string | null;
+  exchangeRate: number | null;
+
   /** Every location this user may see. One entry for a pinned cashier. */
   locations: ShopLocation[];
   /** Where writes land unless told otherwise. */
@@ -104,7 +113,11 @@ async function loadTenantContext(): Promise<TenantContext | null> {
   if (!profile?.tenant_id) return null;
 
   const [{ data: tenant }, { data: locations }] = await Promise.all([
-    supabase.from("tenants").select("name, currency, timezone").eq("id", profile.tenant_id).single(),
+    supabase
+      .from("tenants")
+      .select("name, currency, timezone, secondary_currency, exchange_rate")
+      .eq("id", profile.tenant_id)
+      .single(),
     supabase
       .from("locations")
       .select("id, name, kind, is_default")
@@ -141,6 +154,10 @@ async function loadTenantContext(): Promise<TenantContext | null> {
     userName: profile.name ?? user.email ?? "",
     shopName: tenant?.name ?? "Your shop",
     currency: tenant?.currency ?? "USD",
+    // Both or neither: the column pair is constrained that way, and a rate
+    // without a currency would have the till converting into nothing.
+    secondaryCurrency: tenant?.secondary_currency ?? null,
+    exchangeRate: tenant?.exchange_rate == null ? null : Number(tenant.exchange_rate),
     timezone: tenant?.timezone ?? "UTC",
     locations: visible,
     locationId: active?.id ?? null,

@@ -36,6 +36,21 @@ export interface Tender {
   method: Method;
   amount: string;
   tendered: string;
+  /**
+   * The customer is settling this leg in the counter currency.
+   *
+   * `amount` stays in the shop's currency even then — it is what the sale is
+   * worth, and letting it drift would break the rule that tenders must equal
+   * the total exactly. What changes is that `tendered` is read as counter
+   * currency and change is given in it.
+   */
+  inSecondary?: boolean;
+}
+
+/** What the shop takes at the counter besides its own money. */
+export interface CounterCurrency {
+  code: string;
+  rate: number;
 }
 
 export interface SaleReceipt {

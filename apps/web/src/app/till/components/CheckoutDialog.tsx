@@ -1,6 +1,12 @@
 "use client";
 
-import { centsToInput, formatMoney, parseMoneyToCents } from "@ai-pos/shared";
+import {
+  centsToInput,
+  convertMinor,
+  currencyDisplay,
+  formatMoney,
+  parseMoneyToCents,
+} from "@ai-pos/shared";
 import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +29,13 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-import { METHOD_LABEL, type Method, type Notice as NoticeResult, type Tender } from "./types";
+import {
+  METHOD_LABEL,
+  type CounterCurrency,
+  type Method,
+  type Notice as NoticeResult,
+  type Tender,
+} from "./types";
 
 /**
  * Taking the money. The one rule enforced here is that the tenders must add up
@@ -35,6 +47,7 @@ export function CheckoutDialog({
   open,
   onOpenChange,
   currency,
+  counter,
   totalCents,
   tenders,
   setTenders,
@@ -45,6 +58,8 @@ export function CheckoutDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   currency: string;
+  /** Null for a shop that takes only its own money, which is most of them. */
+  counter: CounterCurrency | null;
   totalCents: number;
   tenders: Tender[];
   setTenders: React.Dispatch<React.SetStateAction<Tender[]>>;
@@ -52,18 +67,48 @@ export function CheckoutDialog({
   notice: NoticeResult;
   onSubmit: () => void;
 }) {
+  // Amounts are always the shop's currency, whatever the customer hands over.
+  // That is what keeps "tenders must equal the total exactly" checkable, and
+  // it is why settling in shillings cannot move a sale total.
   const tendersTotal = tenders.reduce(
     (sum, t) => sum + (parseMoneyToCents(t.amount, currency) ?? 0),
     0,
   );
   const outstanding = totalCents - tendersTotal;
-  const cashChange = tenders
+
+  /** The currency a given leg is physically settled in. */
+  const legCurrency = (t: Tender) => (t.inSecondary && counter ? counter.code : currency);
+
+  /** What this leg is worth in the money the customer is actually holding. */
+  const legDue = (t: Tender) => {
+    const amount = parseMoneyToCents(t.amount, currency) ?? 0;
+    return t.inSecondary && counter
+      ? convertMinor(amount, currency, counter.code, counter.rate)
+      : amount;
+  };
+
+  // Change is given in whatever was handed over. A customer paying 110,000
+  // shillings for a 102,000 basket wants 8,000 shillings back, not its value
+  // in dollars — and the drawer only holds one of those.
+  //
+  // This figure is the authoritative one: it is computed entirely within the
+  // currency being handed over, so it is exact. The change on the receipt is
+  // derived from tendered_cents, which is the shop-currency rounding of the
+  // same event, and the two can differ by a few shillings — 8,000 SLSH is
+  // $0.94 to the nearest cent and $0.94 is 7,990 SLSH back again. That gap is
+  // arithmetic, not a bug: at 8,500 to the dollar a single cent is 85
+  // shillings, so no cent figure can name every shilling amount. The cashier
+  // hands over what this line says; the smallest note in circulation is 500,
+  // which is twenty times the largest possible discrepancy.
+  const changeByCurrency = tenders
     .filter((t) => t.method === "cash")
-    .reduce((sum, t) => {
-      const tendered = parseMoneyToCents(t.tendered, currency) ?? 0;
-      const amount = parseMoneyToCents(t.amount, currency) ?? 0;
-      return sum + Math.max(0, tendered - amount);
-    }, 0);
+    .reduce<Record<string, number>>((acc, t) => {
+      const code = legCurrency(t);
+      const tendered = parseMoneyToCents(t.tendered, code) ?? 0;
+      const change = Math.max(0, tendered - legDue(t));
+      if (change > 0) acc[code] = (acc[code] ?? 0) + change;
+      return acc;
+    }, {});
 
   const patch = (i: number, values: Partial<Tender>) =>
     setTenders((prev) => prev.map((t, j) => (j === i ? { ...t, ...values } : t)));
@@ -75,11 +120,28 @@ export function CheckoutDialog({
           <DialogTitle>Take payment</DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-baseline justify-between rounded-xl bg-primary-soft px-4 py-3">
-          <span className="text-sm font-medium text-primary">Due</span>
-          <strong className="text-2xl font-bold tabular-nums text-primary">
-            {formatMoney(totalCents, currency)}
-          </strong>
+        <div className="rounded-xl bg-primary-soft px-4 py-3">
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm font-medium text-primary">Due</span>
+            <strong className="text-2xl font-bold tabular-nums text-primary">
+              {formatMoney(totalCents, currency)}
+            </strong>
+          </div>
+          {/* The number the cashier says out loud when the shop prices in one
+              currency and the customer pays in another. */}
+          {counter && (
+            <div className="mt-1 flex items-baseline justify-between border-t border-primary/15 pt-1">
+              <span className="text-xs text-muted-foreground">
+                at {counter.rate.toLocaleString()} per {currencyDisplay(currency)}
+              </span>
+              <strong className="tabular-nums text-primary">
+                {formatMoney(
+                  convertMinor(totalCents, currency, counter.code, counter.rate),
+                  counter.code,
+                )}
+              </strong>
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -135,7 +197,9 @@ export function CheckoutDialog({
                 </div>
                 {t.method === "cash" && (
                   <div className="space-y-1">
-                    <Label htmlFor={`given-${i}`}>Cash given</Label>
+                    <Label htmlFor={`given-${i}`}>
+                      Cash given{counter && t.inSecondary ? ` (${currencyDisplay(counter.code)})` : ""}
+                    </Label>
                     <Input
                       id={`given-${i}`}
                       type="number"
@@ -149,6 +213,37 @@ export function CheckoutDialog({
                   </div>
                 )}
               </div>
+
+              {/* Only cash. A card or a mobile-money transfer settles in the
+                  account's own currency; there is no drawer to take shillings
+                  into and no change to hand back. */}
+              {counter && t.method === "cash" && (
+                <div className="space-y-1 rounded-md bg-muted/50 px-2 py-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-[hsl(var(--primary))]"
+                      checked={!!t.inSecondary}
+                      onChange={(e) =>
+                        // The given box is re-read in the other currency, so a
+                        // figure typed for the old one is now a wrong number
+                        // rather than a stale one. Clearing it is the honest move.
+                        patch(i, { inSecondary: e.target.checked, tendered: "" })
+                      }
+                    />
+                    <span>Paying in {currencyDisplay(counter.code)}</span>
+                  </label>
+                  {t.inSecondary && (
+                    <p className="text-xs text-muted-foreground">
+                      Collect{" "}
+                      <strong className="tabular-nums text-foreground">
+                        {formatMoney(legDue(t), counter.code)}
+                      </strong>{" "}
+                      for this {formatMoney(parseMoneyToCents(t.amount, currency) ?? 0, currency)}.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
@@ -183,14 +278,16 @@ export function CheckoutDialog({
               <dd className="tabular-nums">{formatMoney(Math.abs(outstanding), currency)}</dd>
             </div>
           )}
-          {cashChange > 0 && (
-            <div className="flex items-baseline justify-between pt-1">
-              <dt className="font-semibold">Change</dt>
+          {Object.entries(changeByCurrency).map(([code, amount]) => (
+            <div key={code} className="flex items-baseline justify-between pt-1">
+              <dt className="font-semibold">
+                Change{Object.keys(changeByCurrency).length > 1 ? ` (${currencyDisplay(code)})` : ""}
+              </dt>
               <dd className="text-xl font-bold tabular-nums text-primary">
-                {formatMoney(cashChange, currency)}
+                {formatMoney(amount, code)}
               </dd>
             </div>
-          )}
+          ))}
         </dl>
 
         {notice && !notice.ok && <Notice tone="error">{notice.message}</Notice>}
