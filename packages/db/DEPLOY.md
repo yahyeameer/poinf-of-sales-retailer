@@ -29,6 +29,15 @@ verified the same way.
 change is one column with a default, so no existing figure moves until an owner
 sets a timezone.
 
+## You do not paste the migrations anywhere
+
+`npm run db:push` applies every pending migration, in order, and records them
+in Supabase's migration history so the CLI knows what has already run.
+
+Pasting the migration files into the SQL editor instead would apply the SQL but
+**not** record it, so the CLI would still consider them pending and try to apply
+them again on the next push. Use the CLI.
+
 ## Before
 
 Run the read-only check and keep the output. It should show the leak present.
@@ -37,8 +46,13 @@ Run the read-only check and keep the output. It should show the leak present.
 psql "$SUPABASE_DB_URL" -f packages/db/verification/production_check.sql
 ```
 
-Expect section 1 to list `v_expenses_daily`, `v_profit_daily` and
-`v_staff_pin_status`, and section 2 to show the migrations as `NO`.
+**No psql?** Paste `packages/db/verification/production_check_editor.sql` into
+the Supabase SQL editor instead. Same checks, one query, one result grid.
+(`production_check.sql` uses `\echo` and `\pset`, which are psql client
+commands and do nothing in the editor — hence the second file.)
+
+Expect the first check to name `v_expenses_daily`, `v_profit_daily` and
+`v_staff_pin_status` as leaking, and the migration rows to read `FAIL`.
 
 ## Apply
 
@@ -60,10 +74,11 @@ supabase link --project-ref ogzqtmfgadksuszajgla --workdir packages/db
 
 ```bash
 psql "$SUPABASE_DB_URL" -f packages/db/verification/production_check.sql
+# or paste production_check_editor.sql into the SQL editor
 ```
 
-Sections 1, 3, 4 and 5 must each print **no rows**. Section 2 must show every
-migration as `YES`.
+Every row must read **PASS**, except "Shop timezones set", which reads REVIEW
+until you set one — see below.
 
 Then set the shop's timezone — section 6 lists what each is on. Either through
 **Settings → Shop details → Time zone** in the app, or:
